@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+require_relative "pbx/version"
+require_relative "pbx/messages"
+require_relative "pbx/peer"
+require_relative "pbx/status"
+require_relative "pbx/config"
+require_relative "pbx/ami_bridge"
+require_relative "pbx/views/header"
+require_relative "pbx/views/extension_table"
+require_relative "pbx/views/footer"
+require_relative "pbx/views/disconnected_screen"
+require_relative "pbx/views/info_modal"
+require_relative "pbx/app"
+require_relative "pbx/cli"

@@ -1,0 +1,10 @@
+host: pbx.lan
+port: 5038
+user: monitor
+secret: "change-me"
+context: from-internal
+reconnect_backoff:
+  - 1
+  - 2
+  - 5
+  - 10
