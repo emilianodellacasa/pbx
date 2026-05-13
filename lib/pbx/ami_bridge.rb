@@ -12,54 +12,95 @@ module Pbx
     # Subclass that routes parsed AMI events into a Ruby Queue,
     # enabling the Bubbletea command loop to consume them.
     class EventClient < RubyAsterisk::AMI::Client
-      def initialize(host:, port:, queue:)
+      def initialize(host:, port:, queue:, log: nil)
         super(host: host, port: port)
         @event_queue = queue
+        @log = log
       end
 
       private
 
       def dispatch_message(msg)
         super
+        if @log
+          @log.puts "[DISPATCH] type=#{msg[:type]} event=#{msg[:event]&.headers&.inspect}"
+          @log.flush
+        end
         @event_queue.push(msg) if msg[:type] == :event
       end
     end
 
-    def initialize(config, client: nil)
-      @config = config
-      @queue  = Queue.new
-      @client = client || EventClient.new(
+    def initialize(config, client: nil, debug: false)
+      @config    = config
+      @queue     = Queue.new
+      @debug_log = debug ? File.open("/tmp/pbx_debug.log", "a") : nil
+      @client    = client || EventClient.new(
         host:  config.host,
         port:  config.port,
-        queue: @queue
+        queue: @queue,
+        log:   @debug_log
       )
+      # Allow test doubles to receive events via the same queue
+      @client.event_queue = @queue if @client.respond_to?(:event_queue=)
     end
 
     def connect_and_login
-      unless @client.connect
-        raise "Could not connect to #{@config.host}:#{@config.port}"
-      end
+      log "[CONNECT] Connecting to #{@config.host}:#{@config.port} as #{@config.user}"
+      raise "Could not connect to #{@config.host}:#{@config.port}" unless @client.connect
 
       response = @client.login(username: @config.user, secret: @config.secret).value(5)
+      log "[CONNECT] Login response: success=#{response&.success} message=#{response&.message}"
       raise "AMI login failed: #{response&.message}" unless response&.success
     end
 
     def discover_peers
-      peers = []
-      peers += sip_peers
-      peers += pjsip_endpoints
+      # Trigger the SIPPeers AMI action; Asterisk responds with a flood of
+      # PeerEntry events (not inline in the response payload) followed by
+      # PeerlistComplete to signal the end of the list.
+      log "[DISCOVER] Triggering sip_peers action..."
+      @client.sip_peers
+
+      peers            = []
+      non_peer_events  = []
+
+      loop do
+        raw = @queue.pop
+        return [] if raw == SENTINEL
+
+        next unless raw[:type] == :event
+
+        event = raw[:event]
+        next unless event.is_a?(RubyAsterisk::AMI::Event)
+
+        case event.name
+        when "PeerEntry"
+          log "[DISCOVER] PeerEntry: #{event.headers["ObjectName"]} status=#{event.headers["Status"]}"
+          peer = peer_from_sip(event.headers)
+          peers << peer if peer
+        when "PeerlistComplete"
+          log "[DISCOVER] PeerlistComplete — collected #{peers.size} peers"
+          break
+        else
+          non_peer_events << raw
+        end
+      end
+
+      non_peer_events.each { |e| @queue.push(e) }
+      log "[DISCOVER] Returning #{peers.size} peers: #{peers.map(&:name).inspect}"
       peers
+    rescue => e
+      log "[DISCOVER] Error: #{e.class}: #{e.message}\n#{e.backtrace&.first(3)&.join("\n")}"
+      warn "SIP peer discovery failed: #{e.message}"
+      []
     end
 
     def subscribe
-      # Events are already flowing into @queue via EventClient#dispatch_message.
-      # Request all event types from Asterisk.
       @client.event_mask("all")
     end
 
-    def next_event(timeout: nil)
+    def next_event
       loop do
-        raw = timeout ? @queue.pop : @queue.pop
+        raw = @queue.pop
         return nil if raw == SENTINEL
 
         msg = translate_event(raw[:event])
@@ -71,145 +112,77 @@ module Pbx
       @queue.push(SENTINEL)
       @client.logoff rescue nil
       @client.disconnect rescue nil
+      @debug_log&.close
     end
 
     private
 
-    def sip_peers
-      response = @client.sip_peers.value(5)
-      return [] unless response&.success
+    def log(msg)
+      return unless @debug_log
 
-      (response.data[:peers] || []).map { |p| peer_from_sip(p) }.compact
-    rescue => e
-      warn "SIP peer discovery failed: #{e.message}"
-      []
-    end
-
-    def pjsip_endpoints
-      response = @client.execute("PJSIPShowEndpoints").value(5)
-      return [] unless response
-
-      raw = [response.raw_response].flatten.join
-      endpoints = []
-      raw.scan(/Event: EndpointList\n(.*?)\n\n/m) do |match|
-        headers = parse_headers(match[0])
-        next unless headers["ObjectName"]
-
-        endpoints << Peer.new(
-          id:             "PJSIP/#{headers["ObjectName"]}",
-          extension:      headers["ObjectName"],
-          context:        @config.context,
-          label:          headers["DeviceState"] || headers["ObjectName"],
-          status_code:    device_state_to_code(headers["DeviceState"]),
-          last_change_at: nil
-        )
-      end
-      endpoints
-    rescue => e
-      warn "PJSIP endpoint discovery failed: #{e.message}"
-      []
+      @debug_log.puts "[#{Time.now.strftime("%H:%M:%S")}] #{msg}"
+      @debug_log.flush
+    rescue IOError
+      nil
     end
 
     def peer_from_sip(data)
       return nil unless data["ObjectName"]
 
+      name       = data["ObjectName"]
+      raw_status = data["Status"].to_s
+      ip_raw     = data["IPaddress"].to_s
+      ip_address = ip_raw.empty? || ip_raw == "-none-" ? nil : ip_raw
+      ip_port    = data["IPport"].to_s.then { |p| p.empty? || p == "0" ? nil : p.to_i }
+
       Peer.new(
-        id:             "SIP/#{data["ObjectName"]}",
-        extension:      data["ObjectName"],
-        context:        @config.context,
-        label:          data["Description"] || data["ObjectName"],
-        status_code:    sip_status_to_code(data["Status"]),
+        id:             name,
+        name:           name,
+        ip_address:     ip_address,
+        ip_port:        ip_port,
+        status:         Status.from_sip(raw_status),
+        type:           data["Type"],
+        dynamic:        data["Dynamic"],
+        user_agent:     data["SIP-Useragent"],
+        rtt_ms:         Status.rtt_from_sip(raw_status),
         last_change_at: nil
       )
     end
 
     def translate_event(event)
+      log "[EVENT] class=#{event.class}"
       return nil unless event.is_a?(RubyAsterisk::AMI::Event)
 
-      case event.name
-      when "ExtensionStatus", "DeviceStateChange"
-        peer_id    = event.headers["Exten"] || event.headers["Device"]
-        status_str = event.headers["StatusText"] || event.headers["State"] || ""
-        Messages::LineStatusChanged.new(
-          peer_id:     peer_id,
-          status_code: text_to_code(status_str),
-          at:          Time.now
-        )
-      when "PeerStatus"
-        peer_id = event.headers["Peer"]
-        status  = event.headers["PeerStatus"] == "Registered" ? "0" : "3"
-        Messages::LineStatusChanged.new(
-          peer_id:     peer_id,
-          status_code: status,
-          at:          Time.now
-        )
-      when "Newchannel"
-        # A new channel on an extension — mark as in-use
-        exten = event.headers["Exten"]
-        return nil if exten.nil? || exten == "s"
+      log "[EVENT] name=#{event.name} headers=#{event.headers.inspect}"
+      return nil unless event.name == "PeerStatus"
+      return nil unless event.headers["ChannelType"]&.upcase == "SIP"
 
-        Messages::LineStatusChanged.new(
-          peer_id:     exten,
-          status_code: "1",
-          at:          Time.now
-        )
-      when "Hangup"
-        # Channel hung up — mark as idle
-        exten = event.headers["Exten"]
-        return nil if exten.nil? || exten == "s"
+      raw_peer = event.headers["Peer"].to_s
+      name     = raw_peer.sub(/\ASIP\//i, "")
+      return nil if name.empty?
 
-        Messages::LineStatusChanged.new(
-          peer_id:     exten,
-          status_code: "0",
-          at:          Time.now
-        )
-      end
+      peer_status = event.headers["PeerStatus"].to_s
+      address     = event.headers["Address"].to_s
+      ip_address, ip_port = parse_address(address)
+      rtt_ms = event.headers["Time"].to_s.then { |t| t.empty? ? nil : t.to_i }
+
+      Messages::PeerStatusChanged.new(
+        peer_name:  name,
+        status:     Status.from_sip(peer_status),
+        ip_address: ip_address,
+        ip_port:    ip_port,
+        rtt_ms:     rtt_ms,
+        at:         Time.now
+      )
     end
 
-    def sip_status_to_code(status_str)
-      return "3" if status_str.nil?
+    def parse_address(address)
+      return [nil, nil] if address.nil? || address.empty?
 
-      case status_str.downcase
-      when /ok/           then "0"
-      when /lagged/       then "0"
-      when /unreachable/  then "3"
-      when /unmonitored/  then "3"
-      else                     "3"
-      end
-    end
-
-    def device_state_to_code(state)
-      return "3" if state.nil?
-
-      case state.downcase
-      when "not_inuse"  then "0"
-      when "inuse"      then "1"
-      when "busy"       then "2"
-      when "ringing"    then "4"
-      when "onhold"     then "5"
-      else                   "3"
-      end
-    end
-
-    def text_to_code(text)
-      return "3" if text.nil?
-
-      case text.downcase
-      when /idle/        then "0"
-      when /inuse/, /in use/ then "1"
-      when /busy/        then "2"
-      when /unavail/     then "3"
-      when /ringing/     then "4"
-      when /hold/        then "5"
-      else                    "3"
-      end
-    end
-
-    def parse_headers(raw)
-      raw.split("\n").each_with_object({}) do |line, h|
-        k, v = line.split(":", 2)
-        h[k.strip] = v&.strip
-      end
+      parts = address.split(":")
+      ip   = parts[0].then { |h| h.empty? ? nil : h }
+      port = parts[1].to_s.then { |p| p.empty? ? nil : p.to_i }
+      [ip, port]
     end
   end
 end

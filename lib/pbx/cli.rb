@@ -22,9 +22,12 @@ module Pbx
     option :user,   type: :string,  desc: "AMI username"
     option :secret, type: :string,  desc: "AMI secret/password"
     option :config, type: :string,  aliases: "-c", desc: "Path to YAML config file"
+    option :debug,  type: :boolean, default: false, desc: "Write AMI debug log to /tmp/pbx_debug.log"
     def monitor
-      cfg    = Config.load(cli: options.to_h.transform_keys(&:to_sym))
-      bridge = AmiBridge.new(cfg)
+      cli_opts = options.to_h.transform_keys(&:to_sym)
+      debug    = cli_opts.delete(:debug) { false }
+      cfg      = Config.load(cli: cli_opts)
+      bridge   = AmiBridge.new(cfg, debug: debug)
       Bubbletea.run(App.new(bridge: bridge, config: cfg), alt_screen: true)
     rescue Config::Error => e
       warn "Error: #{e.message}"

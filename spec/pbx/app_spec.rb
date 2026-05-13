@@ -108,8 +108,9 @@ RSpec.describe Pbx::App do
     context "with ConnectionEstablished" do
       let(:peers) do
         [
-          Pbx::Peer.new(id: "SIP/1001", extension: "1001", context: "default",
-                        label: "Alice", status_code: "0", last_change_at: nil)
+          Pbx::Peer.new(id: "alice", name: "alice", ip_address: "192.168.1.10",
+                        ip_port: 5060, status: "registered", type: "friend",
+                        dynamic: "yes", user_agent: nil, rtt_ms: nil, last_change_at: nil)
         ]
       end
       let(:msg) { Pbx::Messages::ConnectionEstablished.new(remote: "127.0.0.1:5038", peers: peers) }
@@ -119,9 +120,9 @@ RSpec.describe Pbx::App do
         expect(new_app.status).to eq(:connected)
       end
 
-      it "loads peers into extensions" do
+      it "loads peers into extensions keyed by name" do
         new_app, = app.update(msg)
-        expect(new_app.extensions).to have_key("SIP/1001")
+        expect(new_app.extensions).to have_key("alice")
       end
 
       it "returns a wait_for_event Proc command" do
@@ -144,21 +145,29 @@ RSpec.describe Pbx::App do
       end
     end
 
-    context "with LineStatusChanged" do
+    context "with PeerStatusChanged" do
       before do
-        peer = Pbx::Peer.new(id: "SIP/1001", extension: "1001", context: "default",
-                             label: "Alice", status_code: "0", last_change_at: nil)
-        app.instance_variable_get(:@extensions)["SIP/1001"] = peer
+        peer = Pbx::Peer.new(id: "alice", name: "alice", ip_address: "192.168.1.10",
+                             ip_port: 5060, status: "registered", type: "friend",
+                             dynamic: "yes", user_agent: nil, rtt_ms: 5, last_change_at: nil)
+        app.instance_variable_get(:@extensions)["alice"] = peer
         app.instance_variable_set(:@status, :connected)
       end
 
       let(:msg) do
-        Pbx::Messages::LineStatusChanged.new(peer_id: "1001", status_code: "4", at: Time.now)
+        Pbx::Messages::PeerStatusChanged.new(
+          peer_name: "alice", status: "unreachable", at: Time.now
+        )
       end
 
-      it "updates the extension status code" do
+      it "updates the peer status" do
         new_app, = app.update(msg)
-        expect(new_app.extensions["SIP/1001"].status_code).to eq("4")
+        expect(new_app.extensions["alice"].status).to eq("unreachable")
+      end
+
+      it "preserves existing ip_address when not provided in message" do
+        new_app, = app.update(msg)
+        expect(new_app.extensions["alice"].ip_address).to eq("192.168.1.10")
       end
 
       it "returns a wait_for_event Proc command" do

@@ -34,7 +34,7 @@ module Pbx
     def init
       if @config.complete?
         @spinner, spinner_cmd = @spinner.init
-        [self, Bubbletea.batch(connect_cmd, wait_for_event_cmd, tick_cmd, spinner_cmd)]
+        [self, Bubbletea.batch(connect_cmd, tick_cmd, spinner_cmd)]
       else
         [self, tick_cmd]
       end
@@ -82,15 +82,18 @@ module Pbx
         rebuild_table
         return [self, wait_for_event_cmd]
 
-      when Messages::LineStatusChanged
-        peer = @extensions[message.peer_id] || @extensions.values.find { |p| p.extension == message.peer_id }
-        if peer
+      when Messages::PeerStatusChanged
+        if (peer = @extensions[message.peer_name])
           @extensions[peer.id] = Peer.new(
             id:             peer.id,
-            extension:      peer.extension,
-            context:        peer.context,
-            label:          peer.label,
-            status_code:    message.status_code,
+            name:           peer.name,
+            ip_address:     message.ip_address || peer.ip_address,
+            ip_port:        message.ip_port    || peer.ip_port,
+            status:         message.status,
+            type:           peer.type,
+            dynamic:        peer.dynamic,
+            user_agent:     peer.user_agent,
+            rtt_ms:         message.rtt_ms     || peer.rtt_ms,
             last_change_at: message.at
           )
           rebuild_table

@@ -13,14 +13,17 @@ module Pbx
       end
     end
 
-    class LineStatusChanged < Bubbletea::Message
-      attr_reader :peer_id, :status_code, :at
+    class PeerStatusChanged < Bubbletea::Message
+      attr_reader :peer_name, :status, :ip_address, :ip_port, :rtt_ms, :at
 
-      def initialize(peer_id:, status_code:, at:)
+      def initialize(peer_name:, status:, ip_address: nil, ip_port: nil, rtt_ms: nil, at:)
         super()
-        @peer_id     = peer_id
-        @status_code = status_code
-        @at          = at
+        @peer_name  = peer_name
+        @status     = status
+        @ip_address = ip_address
+        @ip_port    = ip_port
+        @rtt_ms     = rtt_ms
+        @at         = at
       end
     end
 

@@ -8,15 +8,17 @@ RSpec.describe Pbx::AmiBridge do
     )
   end
 
-  let(:fake_client) { FakeAmiClient.new(peers: sip_peers_data) }
-  subject(:bridge)  { described_class.new(config, client: fake_client) }
-
   let(:sip_peers_data) do
     [
-      { "ObjectName" => "1001", "Status" => "OK", "Description" => "Alice" },
-      { "ObjectName" => "1002", "Status" => "UNREACHABLE", "Description" => "Bob" }
+      { "ObjectName" => "alice", "Status" => "OK (3 ms)", "IPaddress" => "192.168.1.10",
+        "IPport" => "5060", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => "Linphone" },
+      { "ObjectName" => "bob", "Status" => "UNREACHABLE", "IPaddress" => "-none-",
+        "IPport" => "0", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => nil }
     ]
   end
+
+  let(:fake_client) { FakeAmiClient.new(peers: sip_peers_data) }
+  subject(:bridge)  { described_class.new(config, client: fake_client) }
 
   describe "#connect_and_login" do
     it "connects and logs in successfully" do
@@ -32,72 +34,102 @@ RSpec.describe Pbx::AmiBridge do
   describe "#discover_peers" do
     before { bridge.connect_and_login }
 
-    it "returns Peer objects from sip_peers" do
-      peers = bridge.discover_peers
-      expect(peers).to all(be_a(Pbx::Peer))
+    it "returns Peer objects" do
+      expect(bridge.discover_peers).to all(be_a(Pbx::Peer))
     end
 
-    it "maps ObjectName to extension" do
-      peers = bridge.discover_peers
-      extensions = peers.map(&:extension)
-      expect(extensions).to include("1001", "1002")
+    it "maps ObjectName to peer name" do
+      names = bridge.discover_peers.map(&:name)
+      expect(names).to include("alice", "bob")
     end
 
-    it "maps OK status to code '0' (Idle)" do
-      peers = bridge.discover_peers
-      alice = peers.find { |p| p.extension == "1001" }
-      expect(alice.status_code).to eq("0")
+    it "parses IP address for registered peers" do
+      alice = bridge.discover_peers.find { |p| p.name == "alice" }
+      expect(alice.ip_address).to eq("192.168.1.10")
     end
 
-    it "maps UNREACHABLE status to code '3' (Unavailable)" do
-      peers = bridge.discover_peers
-      bob = peers.find { |p| p.extension == "1002" }
-      expect(bob.status_code).to eq("3")
+    it "sets ip_address to nil when not registered" do
+      bob = bridge.discover_peers.find { |p| p.name == "bob" }
+      expect(bob.ip_address).to be_nil
+    end
+
+    it "normalises OK status to 'registered'" do
+      alice = bridge.discover_peers.find { |p| p.name == "alice" }
+      expect(alice.status).to eq("registered")
+    end
+
+    it "normalises UNREACHABLE status to 'unreachable'" do
+      bob = bridge.discover_peers.find { |p| p.name == "bob" }
+      expect(bob.status).to eq("unreachable")
+    end
+
+    it "extracts RTT from OK status string" do
+      alice = bridge.discover_peers.find { |p| p.name == "alice" }
+      expect(alice.rtt_ms).to eq(3)
+    end
+
+    it "sets rtt_ms to nil when unreachable" do
+      bob = bridge.discover_peers.find { |p| p.name == "bob" }
+      expect(bob.rtt_ms).to be_nil
     end
   end
 
   describe "#next_event" do
     before { bridge.connect_and_login }
 
-    it "translates ExtensionStatus event to LineStatusChanged" do
-      event = fake_client.inject_event("ExtensionStatus",
-                                       "Exten" => "1001", "StatusText" => "InUse")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
-
-      msg = bridge.next_event
-      expect(msg).to be_a(Pbx::Messages::LineStatusChanged)
-      expect(msg.peer_id).to eq("1001")
-      expect(msg.status_code).to eq("1")
-    end
-
-    it "translates PeerStatus Registered to Idle" do
+    it "translates PeerStatus Registered event to PeerStatusChanged" do
       event = fake_client.inject_event("PeerStatus",
-                                       "Peer" => "SIP/1001", "PeerStatus" => "Registered")
+                                       "ChannelType" => "SIP",
+                                       "Peer"        => "SIP/alice",
+                                       "PeerStatus"  => "Registered",
+                                       "Address"     => "192.168.1.10:5060")
       bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
 
       msg = bridge.next_event
-      expect(msg).to be_a(Pbx::Messages::LineStatusChanged)
-      expect(msg.status_code).to eq("0")
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.peer_name).to eq("alice")
+      expect(msg.status).to eq("registered")
+      expect(msg.ip_address).to eq("192.168.1.10")
+      expect(msg.ip_port).to eq(5060)
     end
 
-    it "returns nil sentinel as nil" do
-      bridge.instance_variable_get(:@queue).push(Pbx::AmiBridge::SENTINEL)
-      expect(bridge.next_event).to be_nil
+    it "translates PeerStatus Unreachable event" do
+      event = fake_client.inject_event("PeerStatus",
+                                       "ChannelType" => "SIP",
+                                       "Peer"        => "SIP/bob",
+                                       "PeerStatus"  => "Unreachable",
+                                       "Time"        => "2000")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.peer_name).to eq("bob")
+      expect(msg.status).to eq("unreachable")
+      expect(msg.rtt_ms).to eq(2000)
     end
 
-    it "skips unknown events and returns next valid one" do
-      # Push an unknown event first
-      event_unknown = fake_client.inject_event("SomeUnknownEvent", "Foo" => "bar")
-      event_known   = fake_client.inject_event("ExtensionStatus",
-                                               "Exten" => "1001", "StatusText" => "Idle")
+    it "ignores non-SIP PeerStatus events" do
+      event_pjsip = fake_client.inject_event("PeerStatus",
+                                             "ChannelType" => "PJSIP",
+                                             "Peer"        => "PJSIP/carol",
+                                             "PeerStatus"  => "Registered")
+      event_sip   = fake_client.inject_event("PeerStatus",
+                                             "ChannelType" => "SIP",
+                                             "Peer"        => "SIP/alice",
+                                             "PeerStatus"  => "Registered",
+                                             "Address"     => "10.0.0.1:5060")
 
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({ type: :event, event: event_unknown })
-      queue.push({ type: :event, event: event_known })
+      queue.push({ type: :event, event: event_pjsip })
+      queue.push({ type: :event, event: event_sip })
 
       msg = bridge.next_event
-      expect(msg).to be_a(Pbx::Messages::LineStatusChanged)
-      expect(msg.status_code).to eq("0")
+      expect(msg.peer_name).to eq("alice")
+    end
+
+    it "returns nil on shutdown sentinel" do
+      bridge.instance_variable_get(:@queue).push(Pbx::AmiBridge::SENTINEL)
+      expect(bridge.next_event).to be_nil
     end
   end
 

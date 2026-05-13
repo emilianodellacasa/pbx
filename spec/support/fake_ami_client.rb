@@ -12,14 +12,14 @@ class FakeAmiClient
   end
 
   attr_reader :connected, :logged_in, :injected_events
+  attr_writer :event_queue
 
-  def initialize(peers: [], pjsip_endpoints: [])
-    @peers            = peers
-    @pjsip_endpoints  = pjsip_endpoints
-    @connected        = false
-    @logged_in        = false
-    @event_handlers   = []
-    @injected_events  = []
+  def initialize(peers: [])
+    @peers           = peers
+    @connected       = false
+    @logged_in       = false
+    @injected_events = []
+    @event_queue     = nil
   end
 
   def connect
@@ -42,25 +42,19 @@ class FakeAmiClient
   end
 
   def sip_peers
-    FakePromise.new(FakeResponse.new(true, { peers: @peers }, nil))
+    if @event_queue
+      @peers.each { |peer_data| push_event("PeerEntry", peer_data) }
+      push_event("PeerlistComplete", "ListItems" => @peers.size.to_s)
+    end
+    FakePromise.new(FakeResponse.new(true, { peers: [] }, nil))
   end
 
   def event_mask(_mask)
     FakePromise.new(FakeResponse.new(true, {}, nil))
   end
 
-  def execute(command, _options = {})
-    case command
-    when "PJSIPShowEndpoints"
-      raw = @pjsip_endpoints.map { |ep|
-        "Event: EndpointList\nObjectName: #{ep[:name]}\nDeviceState: #{ep[:state] || "Not_InUse"}"
-      }.join("\n\n")
-      FakePromise.new(FakeResponse.new(true, {}, nil).tap { |r|
-        r.define_singleton_method(:raw_response) { [raw] }
-      })
-    else
-      FakePromise.new(FakeResponse.new(false, {}, "Unknown command"))
-    end
+  def execute(_command, _options = {})
+    FakePromise.new(FakeResponse.new(false, {}, "Unknown command"))
   end
 
   # Inject an AMI event into the client's event pipeline (simulates push events).
@@ -70,5 +64,14 @@ class FakeAmiClient
     event       = RubyAsterisk::AMI::Event.new(all_headers.transform_values(&:to_s), raw.freeze)
     @injected_events << event
     event
+  end
+
+  private
+
+  def push_event(name, headers = {})
+    all_headers = headers.transform_keys(&:to_s).transform_values(&:to_s).merge("Event" => name)
+    raw         = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
+    event       = RubyAsterisk::AMI::Event.new(all_headers, raw.freeze)
+    @event_queue.push({ type: :event, event: event })
   end
 end
