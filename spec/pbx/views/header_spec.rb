@@ -21,14 +21,14 @@ RSpec.describe Pbx::Views::Header do
     expect(output).to be_a(String)
   end
 
-  it "includes the host" do
-    expect(output).to include("pbx.test")
+  it "shows connecting status" do
+    expect(output).to include("Connecting")
   end
 
   context "when connected" do
     before { allow(state).to receive(:status).and_return(:connected) }
 
-    it "includes connected indicator" do
+    it "includes the host" do
       expect(output).to include("pbx.test")
     end
   end

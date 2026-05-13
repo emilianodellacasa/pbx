@@ -23,7 +23,7 @@ module Pbx
         remote = "#{state.config.host}:#{state.config.port}"
         status = case state.status
                  when :disconnected then STATUS_DISCONNECTED_STYLE.render("◌  Disconnected")
-                 when :connecting   then STATUS_CONNECTING_STYLE.render("Connecting to #{remote}…")
+                 when :connecting   then STATUS_CONNECTING_STYLE.render("◌  Connecting…")
                  when :connected    then STATUS_CONNECTED_STYLE.render("● #{remote}")
                  when :lost         then STATUS_LOST_STYLE.render("✗ #{remote}  #{state.error}")
                  end
