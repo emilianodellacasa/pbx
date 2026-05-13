@@ -138,7 +138,9 @@ module Pbx
       when :disconnected
         Views::DisconnectedScreen.call(self)
       when :connecting
-        Lipgloss::Style.new.padding(1, 2).render(@spinner.view)
+        body_height = [(@height - 4), 3].max
+        top_pad     = body_height / 2
+        Lipgloss::Style.new.padding(top_pad, 2, body_height - top_pad - 1, 2).render(@spinner.view)
       else
         @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
       end
