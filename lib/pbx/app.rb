@@ -140,8 +140,7 @@ module Pbx
       when :disconnected
         Views::DisconnectedScreen.call(self)
       when :connecting
-        body_height = [(@height - 4), 1].max
-        "\n" * body_height
+        ""
       else
         @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
       end
