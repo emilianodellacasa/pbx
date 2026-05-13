@@ -127,10 +127,11 @@ module Pbx
     def view
       return Views::InfoModal.call(self) if @show_info
 
-      header = Views::Header.call(self)
-      body   = build_body
-      footer = Views::Footer.call(self)
-      Lipgloss.join_vertical(:left, header, body, footer)
+      header  = Views::Header.call(self)
+      body    = build_body
+      footer  = Views::Footer.call(self)
+      content = Lipgloss.join_vertical(:left, header, body, footer)
+      Lipgloss.place(@width, @height, :left, :top, content)
     end
 
     private
