@@ -18,7 +18,7 @@ module Pbx
     TICK_INTERVAL = 1  # seconds between "time since last change" refresh
 
     attr_reader :extensions, :active_calls, :status, :error, :width, :height, :config,
-                :show_info, :system_boot_at, :last_reload_at
+                :show_info, :system_boot_at, :last_reload_at, :view_mode
 
     def spinner_view = @spinner.view
 
@@ -33,6 +33,7 @@ module Pbx
       @height          = 24
       @table           = nil
       @show_info       = false
+      @view_mode       = :peers
       @spinner         = Bubbles::Spinner.new(spinner: Bubbles::Spinners::DOT)
       @system_boot_at  = nil
       @last_reload_at  = nil
@@ -62,7 +63,19 @@ module Pbx
           return [self, nil]
         end
 
-        if @table && (@status == :connected)
+        if message.runes? && message.char == "p" && @status == :connected
+          @view_mode = :peers
+          rebuild_table
+          return [self, nil]
+        end
+
+        if message.runes? && message.char == "c" && @status == :connected
+          @view_mode = :calls
+          rebuild_table
+          return [self, nil]
+        end
+
+        if @table && (@status == :connected) && @view_mode == :peers
           @table, table_cmd = @table.update(message)
           return [self, table_cmd]
         end
@@ -178,25 +191,18 @@ module Pbx
       when :connecting
         ""
       else
-        peers = @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
-        if @active_calls.any?
-          calls = Views::ActiveCalls.render(@active_calls, @width, calls_table_height)
-          Lipgloss.join_vertical(:left, peers, calls)
+        if @view_mode == :calls
+          calls_table_height = [@active_calls.size, @height - 8].min
+          calls_table_height = 1 if calls_table_height < 1
+          Views::ActiveCalls.render(@active_calls, @width, calls_table_height)
         else
-          peers
+          @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
         end
       end
     end
 
-    CALLS_SECTION_HEIGHT = 8  # sep + title + table (with header row + up to 5 rows)
-
-    def calls_table_height
-      [@active_calls.size, 5].min + 1
-    end
-
     def rebuild_table
-      calls_h      = @active_calls.any? ? CALLS_SECTION_HEIGHT : 0
-      table_height = [@height - 6 - calls_h, 5].max
+      table_height = [@height - 6, 5].max
       @table = Views::ExtensionTable.build(@extensions, table_height)
     end
 

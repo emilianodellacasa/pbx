@@ -185,6 +185,34 @@ RSpec.describe Pbx::App do
       end
     end
 
+    context "view mode switching" do
+      before { app.instance_variable_set(:@status, :connected) }
+
+      let(:key_p) { Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "p".unpack("U*")) }
+      let(:key_c) { Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "c".unpack("U*")) }
+
+      it "starts in :peers mode" do
+        expect(app.view_mode).to eq(:peers)
+      end
+
+      it "switches to :calls mode on 'c'" do
+        new_app, = app.update(key_c)
+        expect(new_app.view_mode).to eq(:calls)
+      end
+
+      it "switches back to :peers mode on 'p'" do
+        app.instance_variable_set(:@view_mode, :calls)
+        new_app, = app.update(key_p)
+        expect(new_app.view_mode).to eq(:peers)
+      end
+
+      it "does not switch mode when not connected" do
+        app.instance_variable_set(:@status, :connecting)
+        new_app, = app.update(key_c)
+        expect(new_app.view_mode).to eq(:peers)
+      end
+    end
+
     context "with CallStarted" do
       let(:msg) do
         Pbx::Messages::CallStarted.new(
