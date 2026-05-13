@@ -12,7 +12,8 @@ RSpec.describe Pbx::Views::Header do
     double("App",
            config: config, width: 80, status: :connecting,
            error: nil, extensions: {},
-           system_boot_at: nil, last_reload_at: nil)
+           system_boot_at: nil, last_reload_at: nil,
+           spinner_view: "⠋")
   end
 
   subject(:output) { described_class.call(state) }

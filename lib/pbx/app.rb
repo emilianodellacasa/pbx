@@ -19,6 +19,8 @@ module Pbx
     attr_reader :extensions, :status, :error, :width, :height, :config, :show_info,
                 :system_boot_at, :last_reload_at
 
+    def spinner_view = @spinner.view
+
     def initialize(bridge:, config:)
       @bridge          = bridge
       @config          = config
@@ -138,9 +140,8 @@ module Pbx
       when :disconnected
         Views::DisconnectedScreen.call(self)
       when :connecting
-        body_height = [(@height - 4), 3].max
-        top_pad     = body_height / 2
-        Lipgloss::Style.new.padding(top_pad, 2, body_height - top_pad - 1, 2).render(@spinner.view)
+        body_height = [(@height - 4), 1].max
+        "\n" * body_height
       else
         @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
       end
