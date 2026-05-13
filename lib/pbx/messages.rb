@@ -63,5 +63,16 @@ module Pbx
         @at = at
       end
     end
+
+    class SystemInfo < Bubbletea::Message
+      attr_reader :uptime_secs, :last_reload_secs, :received_at
+
+      def initialize(uptime_secs:, last_reload_secs:, received_at:)
+        super()
+        @uptime_secs      = uptime_secs
+        @last_reload_secs = last_reload_secs
+        @received_at      = received_at
+      end
+    end
   end
 end

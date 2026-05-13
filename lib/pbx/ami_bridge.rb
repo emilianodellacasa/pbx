@@ -154,7 +154,20 @@ module Pbx
       return nil unless event.is_a?(RubyAsterisk::AMI::Event)
 
       log "[EVENT] name=#{event.name} headers=#{event.headers.inspect}"
-      return nil unless event.name == "PeerStatus"
+
+      case event.name
+      when "FullyBooted"
+        return Messages::SystemInfo.new(
+          uptime_secs:      event.headers["Uptime"].to_i,
+          last_reload_secs: event.headers["LastReload"].to_i,
+          received_at:      Time.now
+        )
+      when "PeerStatus"
+        # handled below
+      else
+        return nil
+      end
+
       return nil unless event.headers["ChannelType"]&.upcase == "SIP"
 
       raw_peer = event.headers["Peer"].to_s

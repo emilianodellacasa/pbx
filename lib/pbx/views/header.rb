@@ -16,6 +16,7 @@ module Pbx
       STATUS_LOST_STYLE         = Lipgloss::Style.new.foreground("#ef4444").bold(true)
 
       SEPARATOR_STYLE = Lipgloss::Style.new.foreground("#4b5563")
+      SYSINFO_STYLE   = Lipgloss::Style.new.foreground("#6b7280")
 
       def self.call(state)
         title  = TITLE_STYLE.render("PBX Monitor")
@@ -27,9 +28,35 @@ module Pbx
                  when :lost         then STATUS_LOST_STYLE.render("✗ #{remote}  #{state.error}")
                  end
 
-        line = Lipgloss.join_horizontal(:center, title, "  ", status)
-        sep  = SEPARATOR_STYLE.render("─" * (state.width > 0 ? state.width : 80))
+        sysinfo = build_sysinfo(state)
+        line    = if sysinfo
+                    Lipgloss.join_horizontal(:center, title, "  ", status, "  ", sysinfo)
+                  else
+                    Lipgloss.join_horizontal(:center, title, "  ", status)
+                  end
+        sep = SEPARATOR_STYLE.render("─" * (state.width > 0 ? state.width : 80))
         Lipgloss.join_vertical(:left, line, sep)
+      end
+
+      def self.build_sysinfo(state)
+        return nil unless state.system_boot_at || state.last_reload_at
+
+        parts = []
+        parts << "Up #{format_duration((Time.now - state.system_boot_at).to_i)}" if state.system_boot_at
+        parts << "Reload #{format_duration((Time.now - state.last_reload_at).to_i)}" if state.last_reload_at
+        SYSINFO_STYLE.render(parts.join("  ·  "))
+      end
+
+      def self.format_duration(secs)
+        d = secs / 86_400
+        h = (secs % 86_400) / 3_600
+        m = (secs % 3_600) / 60
+
+        parts = []
+        parts << "#{d}d" if d > 0
+        parts << "#{h}h" if h > 0 || d > 0
+        parts << "#{m}m"
+        parts.join(" ")
       end
     end
   end

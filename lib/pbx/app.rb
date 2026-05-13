@@ -16,19 +16,22 @@ module Pbx
 
     TICK_INTERVAL = 1  # seconds between "time since last change" refresh
 
-    attr_reader :extensions, :status, :error, :width, :height, :config, :show_info
+    attr_reader :extensions, :status, :error, :width, :height, :config, :show_info,
+                :system_boot_at, :last_reload_at
 
     def initialize(bridge:, config:)
-      @bridge     = bridge
-      @config     = config
-      @extensions = {}
-      @status     = @config.complete? ? :connecting : :disconnected
-      @error      = nil
-      @width      = 80
-      @height     = 24
-      @table      = nil
-      @show_info  = false
-      @spinner    = Bubbles::Spinner.new(spinner: Bubbles::Spinners::DOT)
+      @bridge          = bridge
+      @config          = config
+      @extensions      = {}
+      @status          = @config.complete? ? :connecting : :disconnected
+      @error           = nil
+      @width           = 80
+      @height          = 24
+      @table           = nil
+      @show_info       = false
+      @spinner         = Bubbles::Spinner.new(spinner: Bubbles::Spinners::DOT)
+      @system_boot_at  = nil
+      @last_reload_at  = nil
     end
 
     def init
@@ -98,6 +101,11 @@ module Pbx
           )
           rebuild_table
         end
+        return [self, wait_for_event_cmd]
+
+      when Messages::SystemInfo
+        @system_boot_at = message.received_at - message.uptime_secs
+        @last_reload_at = message.received_at - message.last_reload_secs
         return [self, wait_for_event_cmd]
 
       when Messages::AmiError
