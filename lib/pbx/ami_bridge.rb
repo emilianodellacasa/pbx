@@ -155,38 +155,75 @@ module Pbx
 
       log "[EVENT] name=#{event.name} headers=#{event.headers.inspect}"
 
+      h = event.headers
+
       case event.name
       when "FullyBooted"
-        return Messages::SystemInfo.new(
-          uptime_secs:      event.headers["Uptime"].to_i,
-          last_reload_secs: event.headers["LastReload"].to_i,
+        Messages::SystemInfo.new(
+          uptime_secs:      h["Uptime"].to_i,
+          last_reload_secs: h["LastReload"].to_i,
           received_at:      Time.now
         )
+
+      when "Newchannel"
+        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+
+        Messages::CallStarted.new(
+          uniqueid:    h["Uniqueid"],
+          channel:     h["Channel"],
+          caller_id:   h["CallerIDNum"].to_s,
+          caller_name: h["CallerIDName"].to_s,
+          state:       h["ChannelStateDesc"].to_s,
+          started_at:  Time.now
+        )
+
+      when "Hangup"
+        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+
+        Messages::CallEnded.new(uniqueid: h["Uniqueid"])
+
+      when "DialBegin"
+        connected = h["DestCallerIDNum"].to_s
+        connected = nil if connected.empty? || connected == "<unknown>"
+        Messages::CallStateChanged.new(
+          uniqueid:     h["Uniqueid"],
+          state:        "Dialing",
+          connected_to: connected
+        )
+
+      when "ChannelStateChange"
+        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+
+        connected = h["ConnectedLineNum"].to_s
+        connected = nil if connected.empty? || connected == "<unknown>"
+        Messages::CallStateChanged.new(
+          uniqueid:     h["Uniqueid"],
+          state:        h["ChannelStateDesc"].to_s,
+          connected_to: connected
+        )
+
       when "PeerStatus"
-        # handled below
+        return nil unless h["ChannelType"]&.upcase == "SIP"
+
+        name = h["Peer"].to_s.sub(/\ASIP\//i, "")
+        return nil if name.empty?
+
+        address    = h["Address"].to_s
+        ip_address, ip_port = parse_address(address)
+        rtt_ms = h["Time"].to_s.then { |t| t.empty? ? nil : t.to_i }
+
+        Messages::PeerStatusChanged.new(
+          peer_name:  name,
+          status:     Status.from_sip(h["PeerStatus"].to_s),
+          ip_address: ip_address,
+          ip_port:    ip_port,
+          rtt_ms:     rtt_ms,
+          at:         Time.now
+        )
+
       else
-        return nil
+        nil
       end
-
-      return nil unless event.headers["ChannelType"]&.upcase == "SIP"
-
-      raw_peer = event.headers["Peer"].to_s
-      name     = raw_peer.sub(/\ASIP\//i, "")
-      return nil if name.empty?
-
-      peer_status = event.headers["PeerStatus"].to_s
-      address     = event.headers["Address"].to_s
-      ip_address, ip_port = parse_address(address)
-      rtt_ms = event.headers["Time"].to_s.then { |t| t.empty? ? nil : t.to_i }
-
-      Messages::PeerStatusChanged.new(
-        peer_name:  name,
-        status:     Status.from_sip(peer_status),
-        ip_address: ip_address,
-        ip_port:    ip_port,
-        rtt_ms:     rtt_ms,
-        at:         Time.now
-      )
     end
 
     def parse_address(address)

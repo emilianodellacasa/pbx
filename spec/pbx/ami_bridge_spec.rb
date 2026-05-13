@@ -131,6 +131,80 @@ RSpec.describe Pbx::AmiBridge do
       bridge.instance_variable_get(:@queue).push(Pbx::AmiBridge::SENTINEL)
       expect(bridge.next_event).to be_nil
     end
+
+    it "translates Newchannel to CallStarted for SIP channels" do
+      event = fake_client.inject_event("Newchannel",
+                                       "Channel"          => "SIP/alice-00000001",
+                                       "Uniqueid"         => "1234567890.1",
+                                       "CallerIDNum"      => "101",
+                                       "CallerIDName"     => "Alice",
+                                       "ChannelStateDesc" => "Ring")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallStarted)
+      expect(msg.uniqueid).to eq("1234567890.1")
+      expect(msg.channel).to eq("SIP/alice-00000001")
+      expect(msg.caller_id).to eq("101")
+      expect(msg.caller_name).to eq("Alice")
+      expect(msg.state).to eq("Ring")
+    end
+
+    it "ignores Newchannel for non-SIP channels" do
+      event_pjsip = fake_client.inject_event("Newchannel",
+                                             "Channel"  => "PJSIP/alice-00000001",
+                                             "Uniqueid" => "999")
+      event_sip   = fake_client.inject_event("PeerStatus",
+                                             "ChannelType" => "SIP",
+                                             "Peer"        => "SIP/alice",
+                                             "PeerStatus"  => "Registered",
+                                             "Address"     => "10.0.0.1:5060")
+      queue = bridge.instance_variable_get(:@queue)
+      queue.push({ type: :event, event: event_pjsip })
+      queue.push({ type: :event, event: event_sip })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+    end
+
+    it "translates Hangup to CallEnded for SIP channels" do
+      event = fake_client.inject_event("Hangup",
+                                       "Channel"  => "SIP/alice-00000001",
+                                       "Uniqueid" => "1234567890.1")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallEnded)
+      expect(msg.uniqueid).to eq("1234567890.1")
+    end
+
+    it "translates DialBegin to CallStateChanged with Dialing state" do
+      event = fake_client.inject_event("DialBegin",
+                                       "Uniqueid"          => "1234567890.1",
+                                       "DestCallerIDNum"   => "102")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallStateChanged)
+      expect(msg.uniqueid).to eq("1234567890.1")
+      expect(msg.state).to eq("Dialing")
+      expect(msg.connected_to).to eq("102")
+    end
+
+    it "translates ChannelStateChange to CallStateChanged for SIP channels" do
+      event = fake_client.inject_event("ChannelStateChange",
+                                       "Channel"            => "SIP/alice-00000001",
+                                       "Uniqueid"           => "1234567890.1",
+                                       "ChannelStateDesc"   => "Up",
+                                       "ConnectedLineNum"   => "102")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallStateChanged)
+      expect(msg.uniqueid).to eq("1234567890.1")
+      expect(msg.state).to eq("Up")
+      expect(msg.connected_to).to eq("102")
+    end
   end
 
   describe "#shutdown" do

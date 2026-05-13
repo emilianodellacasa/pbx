@@ -6,6 +6,7 @@ require "lipgloss"
 require_relative "messages"
 require_relative "views/header"
 require_relative "views/extension_table"
+require_relative "views/active_calls"
 require_relative "views/footer"
 require_relative "views/disconnected_screen"
 require_relative "views/info_modal"
@@ -16,8 +17,8 @@ module Pbx
 
     TICK_INTERVAL = 1  # seconds between "time since last change" refresh
 
-    attr_reader :extensions, :status, :error, :width, :height, :config, :show_info,
-                :system_boot_at, :last_reload_at
+    attr_reader :extensions, :active_calls, :status, :error, :width, :height, :config,
+                :show_info, :system_boot_at, :last_reload_at
 
     def spinner_view = @spinner.view
 
@@ -25,6 +26,7 @@ module Pbx
       @bridge          = bridge
       @config          = config
       @extensions      = {}
+      @active_calls    = {}
       @status          = @config.complete? ? :connecting : :disconnected
       @error           = nil
       @width           = 80
@@ -105,6 +107,39 @@ module Pbx
         end
         return [self, wait_for_event_cmd]
 
+      when Messages::CallStarted
+        @active_calls[message.uniqueid] = Call.new(
+          uniqueid:     message.uniqueid,
+          channel:      message.channel,
+          caller_id:    message.caller_id,
+          caller_name:  message.caller_name,
+          connected_to: nil,
+          state:        message.state,
+          started_at:   message.started_at
+        )
+        rebuild_table
+        return [self, wait_for_event_cmd]
+
+      when Messages::CallEnded
+        @active_calls.delete(message.uniqueid)
+        rebuild_table
+        return [self, wait_for_event_cmd]
+
+      when Messages::CallStateChanged
+        if (call = @active_calls[message.uniqueid])
+          @active_calls[call.uniqueid] = Call.new(
+            uniqueid:     call.uniqueid,
+            channel:      call.channel,
+            caller_id:    call.caller_id,
+            caller_name:  call.caller_name,
+            connected_to: message.connected_to || call.connected_to,
+            state:        message.state,
+            started_at:   call.started_at
+          )
+          rebuild_table
+        end
+        return [self, wait_for_event_cmd]
+
       when Messages::SystemInfo
         @system_boot_at = message.received_at - message.uptime_secs
         @last_reload_at = message.received_at - message.last_reload_secs
@@ -143,12 +178,25 @@ module Pbx
       when :connecting
         ""
       else
-        @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
+        peers = @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
+        if @active_calls.any?
+          calls = Views::ActiveCalls.render(@active_calls, @width, calls_table_height)
+          Lipgloss.join_vertical(:left, peers, calls)
+        else
+          peers
+        end
       end
     end
 
+    CALLS_SECTION_HEIGHT = 8  # sep + title + table (with header row + up to 5 rows)
+
+    def calls_table_height
+      [@active_calls.size, 5].min + 1
+    end
+
     def rebuild_table
-      table_height = [@height - 6, 5].max
+      calls_h      = @active_calls.any? ? CALLS_SECTION_HEIGHT : 0
+      table_height = [@height - 6 - calls_h, 5].max
       @table = Views::ExtensionTable.build(@extensions, table_height)
     end
 

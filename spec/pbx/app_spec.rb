@@ -184,6 +184,103 @@ RSpec.describe Pbx::App do
         expect(cmd).to be_a(Bubbletea::TickCommand)
       end
     end
+
+    context "with CallStarted" do
+      let(:msg) do
+        Pbx::Messages::CallStarted.new(
+          uniqueid:    "1234567890.1",
+          channel:     "SIP/alice-00000001",
+          caller_id:   "101",
+          caller_name: "Alice",
+          state:       "Ring",
+          started_at:  Time.now
+        )
+      end
+
+      it "adds the call to active_calls" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls).to have_key("1234567890.1")
+      end
+
+      it "stores call details" do
+        new_app, = app.update(msg)
+        call = new_app.active_calls["1234567890.1"]
+        expect(call.channel).to eq("SIP/alice-00000001")
+        expect(call.caller_id).to eq("101")
+        expect(call.state).to eq("Ring")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
+
+    context "with CallEnded" do
+      before do
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
+          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
+          caller_id: "101", caller_name: "Alice",
+          connected_to: nil, state: "Up", started_at: Time.now
+        )
+      end
+
+      let(:msg) { Pbx::Messages::CallEnded.new(uniqueid: "1234567890.1") }
+
+      it "removes the call from active_calls" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls).not_to have_key("1234567890.1")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
+
+    context "with CallStateChanged" do
+      before do
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
+          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
+          caller_id: "101", caller_name: "Alice",
+          connected_to: nil, state: "Ring", started_at: Time.now
+        )
+      end
+
+      let(:msg) do
+        Pbx::Messages::CallStateChanged.new(
+          uniqueid:     "1234567890.1",
+          state:        "Up",
+          connected_to: "102"
+        )
+      end
+
+      it "updates the call state" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].state).to eq("Up")
+      end
+
+      it "updates connected_to" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].connected_to).to eq("102")
+      end
+
+      it "preserves existing connected_to when not provided" do
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
+          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
+          caller_id: "101", caller_name: "Alice",
+          connected_to: "102", state: "Up", started_at: Time.now
+        )
+        msg_no_connected = Pbx::Messages::CallStateChanged.new(uniqueid: "1234567890.1", state: "Ringing")
+        new_app, = app.update(msg_no_connected)
+        expect(new_app.active_calls["1234567890.1"].connected_to).to eq("102")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
   end
 
   describe "#view" do

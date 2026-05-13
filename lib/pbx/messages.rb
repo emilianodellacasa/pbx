@@ -64,6 +64,40 @@ module Pbx
       end
     end
 
+    class CallStarted < Bubbletea::Message
+      attr_reader :uniqueid, :channel, :caller_id, :caller_name, :state, :started_at
+
+      def initialize(uniqueid:, channel:, caller_id:, caller_name:, state:, started_at:)
+        super()
+        @uniqueid    = uniqueid
+        @channel     = channel
+        @caller_id   = caller_id
+        @caller_name = caller_name
+        @state       = state
+        @started_at  = started_at
+      end
+    end
+
+    class CallEnded < Bubbletea::Message
+      attr_reader :uniqueid
+
+      def initialize(uniqueid:)
+        super()
+        @uniqueid = uniqueid
+      end
+    end
+
+    class CallStateChanged < Bubbletea::Message
+      attr_reader :uniqueid, :state, :connected_to
+
+      def initialize(uniqueid:, state:, connected_to: nil)
+        super()
+        @uniqueid     = uniqueid
+        @state        = state
+        @connected_to = connected_to
+      end
+    end
+
     class SystemInfo < Bubbletea::Message
       attr_reader :uptime_secs, :last_reload_secs, :received_at
 
