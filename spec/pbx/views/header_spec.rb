@@ -21,8 +21,8 @@ RSpec.describe Pbx::Views::Header do
     expect(output).to be_a(String)
   end
 
-  it "shows connecting status" do
-    expect(output).to include("Connecting")
+  it "includes the host" do
+    expect(output).to include("pbx.test")
   end
 
   context "when connected" do

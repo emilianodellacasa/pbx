@@ -138,8 +138,7 @@ module Pbx
       when :disconnected
         Views::DisconnectedScreen.call(self)
       when :connecting
-        padding = Lipgloss::Style.new.padding(1, 2)
-        padding.render("#{@spinner.view}  Connecting to #{@config.host}:#{@config.port}…")
+        Lipgloss::Style.new.padding(1, 2).render(@spinner.view)
       else
         @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
       end
