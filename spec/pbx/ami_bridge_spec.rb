@@ -191,6 +191,82 @@ RSpec.describe Pbx::AmiBridge do
       expect(msg.connected_to).to eq("102")
     end
 
+    it "translates DialEnd to DialCompleted" do
+      event = fake_client.inject_event("DialEnd",
+                                       "Uniqueid"    => "1234567890.1",
+                                       "DialStatus"  => "BUSY")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::DialCompleted)
+      expect(msg.uniqueid).to eq("1234567890.1")
+      expect(msg.dial_status).to eq("BUSY")
+    end
+
+    it "translates Hold to CallHeld" do
+      event = fake_client.inject_event("Hold", "Uniqueid" => "1234567890.1")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallHeld)
+      expect(msg.uniqueid).to eq("1234567890.1")
+    end
+
+    it "translates MusicOnHoldStart to CallHeld" do
+      event = fake_client.inject_event("MusicOnHoldStart",
+                                       "Uniqueid" => "1234567890.1",
+                                       "Class"    => "default")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallHeld)
+    end
+
+    it "translates Unhold to CallUnheld" do
+      event = fake_client.inject_event("Unhold", "Uniqueid" => "1234567890.1")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallUnheld)
+      expect(msg.uniqueid).to eq("1234567890.1")
+    end
+
+    it "translates Newexten to CallDialplanUpdate for non-noise apps" do
+      event = fake_client.inject_event("Newexten",
+                                       "Uniqueid"     => "1234567890.1",
+                                       "Context"      => "from-internal",
+                                       "Extension"    => "102",
+                                       "Application"  => "Dial",
+                                       "AppData"      => "SIP/102,30")
+      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallDialplanUpdate)
+      expect(msg.uniqueid).to eq("1234567890.1")
+      expect(msg.application).to eq("Dial")
+      expect(msg.exten).to eq("102")
+      expect(msg.context).to eq("from-internal")
+    end
+
+    it "drops Newexten for noise applications" do
+      event_noise = fake_client.inject_event("Newexten",
+                                             "Uniqueid"    => "1234567890.1",
+                                             "Application" => "Set",
+                                             "Extension"   => "s")
+      event_real  = fake_client.inject_event("Newexten",
+                                             "Uniqueid"    => "1234567890.1",
+                                             "Context"     => "from-internal",
+                                             "Extension"   => "102",
+                                             "Application" => "Dial")
+      queue = bridge.instance_variable_get(:@queue)
+      queue.push({ type: :event, event: event_noise })
+      queue.push({ type: :event, event: event_real })
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallDialplanUpdate)
+      expect(msg.application).to eq("Dial")
+    end
+
     it "translates ChannelStateChange to CallStateChanged for SIP channels" do
       event = fake_client.inject_event("ChannelStateChange",
                                        "Channel"            => "SIP/alice-00000001",

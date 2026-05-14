@@ -149,6 +149,11 @@ module Pbx
       )
     end
 
+    DIALPLAN_NOISE_APPS = %w[
+      NoOp Verbose Set GotoIf GotoIfTime Goto Return ExecIf Wait
+      Answer Progress Ringing ResetCDR NoCDR UserEvent Log Macro MacroExit
+    ].freeze
+
     def translate_event(event)
       log "[EVENT] class=#{event.class}"
       return nil unless event.is_a?(RubyAsterisk::AMI::Event)
@@ -200,6 +205,34 @@ module Pbx
           uniqueid:     h["Uniqueid"],
           state:        h["ChannelStateDesc"].to_s,
           connected_to: connected
+        )
+
+      when "DialEnd"
+        Messages::DialCompleted.new(
+          uniqueid:    h["Uniqueid"].to_s,
+          dial_status: h["DialStatus"].to_s
+        )
+
+      when "Hold", "MusicOnHoldStart"
+        uniqueid = h["Uniqueid"].to_s
+        return nil if uniqueid.empty?
+        Messages::CallHeld.new(uniqueid: uniqueid)
+
+      when "Unhold", "MusicOnHoldStop"
+        uniqueid = h["Uniqueid"].to_s
+        return nil if uniqueid.empty?
+        Messages::CallUnheld.new(uniqueid: uniqueid)
+
+      when "Newexten"
+        uniqueid = h["Uniqueid"].to_s
+        app      = h["Application"].to_s
+        return nil if uniqueid.empty? || app.empty?
+        return nil if DIALPLAN_NOISE_APPS.include?(app)
+        Messages::CallDialplanUpdate.new(
+          uniqueid:    uniqueid,
+          context:     h["Context"].to_s,
+          exten:       h["Extension"].to_s,
+          application: app
         )
 
       when "PeerStatus"

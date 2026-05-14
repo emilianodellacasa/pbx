@@ -8,8 +8,9 @@ module Pbx
     module ActiveCalls
       COLUMNS = [
         { title: "Channel", width: 14 },
-        { title: "State",   width: 12 },
-        { title: "With",    width: 22 },
+        { title: "State",   width: 14 },
+        { title: "App",     width: 14 },
+        { title: "With",    width: 18 },
         { title: "For",     width: 10 }
       ].freeze
 
@@ -26,6 +27,23 @@ module Pbx
         "offhook"  => "·"
       }.freeze
 
+      OUTCOME_SYMBOLS = {
+        "ANSWER"      => "▶",
+        "BUSY"        => "✕",
+        "NOANSWER"    => "⌀",
+        "CANCEL"      => "←",
+        "CHANUNAVAIL" => "✗",
+        "CONGESTION"  => "!"
+      }.freeze
+
+      OUTCOME_LABELS = {
+        "BUSY"        => "Busy",
+        "NOANSWER"    => "No answer",
+        "CANCEL"      => "Cancelled",
+        "CHANUNAVAIL" => "Unavailable",
+        "CONGESTION"  => "Congestion"
+      }.freeze
+
       def self.render(calls, width, table_height)
         sep   = SEP_STYLE.render("─" * [width, 1].max)
         title = TITLE_STYLE.render("Active Calls (#{calls.size})")
@@ -39,7 +57,8 @@ module Pbx
                     .map { |call|
                       [
                         short_channel(call.channel),
-                        state_text(call.state),
+                        state_text(call),
+                        call.dialplan_app || "—",
                         call.connected_to.to_s.empty? ? "—" : call.connected_to,
                         duration(call.started_at)
                       ]
@@ -57,10 +76,18 @@ module Pbx
         channel.sub(/\ASIP\//i, "").split("-").first || channel
       end
 
-      def self.state_text(state)
-        key    = state.to_s.downcase
+      def self.state_text(call)
+        return "⏸ Hold" if call.held
+
+        if call.outcome && call.outcome != "ANSWER"
+          sym   = OUTCOME_SYMBOLS.fetch(call.outcome, "?")
+          label = OUTCOME_LABELS.fetch(call.outcome, call.outcome.downcase.capitalize)
+          return "#{sym} #{label}"
+        end
+
+        key    = call.state.to_s.downcase
         symbol = STATE_SYMBOLS.fetch(key, "·")
-        "#{symbol} #{state.to_s.capitalize}"
+        "#{symbol} #{call.state.to_s.capitalize}"
       end
 
       def self.duration(started_at)

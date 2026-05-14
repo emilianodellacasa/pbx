@@ -122,13 +122,17 @@ module Pbx
 
       when Messages::CallStarted
         @active_calls[message.uniqueid] = Call.new(
-          uniqueid:     message.uniqueid,
-          channel:      message.channel,
-          caller_id:    message.caller_id,
-          caller_name:  message.caller_name,
-          connected_to: nil,
-          state:        message.state,
-          started_at:   message.started_at
+          uniqueid:       message.uniqueid,
+          channel:        message.channel,
+          caller_id:      message.caller_id,
+          caller_name:    message.caller_name,
+          connected_to:   nil,
+          state:          message.state,
+          started_at:     message.started_at,
+          outcome:        nil,
+          held:           false,
+          dialplan_app:   nil,
+          dialplan_exten: nil
         )
         rebuild_table
         return [self, wait_for_event_cmd]
@@ -140,14 +144,40 @@ module Pbx
 
       when Messages::CallStateChanged
         if (call = @active_calls[message.uniqueid])
-          @active_calls[call.uniqueid] = Call.new(
-            uniqueid:     call.uniqueid,
-            channel:      call.channel,
-            caller_id:    call.caller_id,
-            caller_name:  call.caller_name,
+          @active_calls[call.uniqueid] = call.with(
             connected_to: message.connected_to || call.connected_to,
-            state:        message.state,
-            started_at:   call.started_at
+            state:        message.state
+          )
+          rebuild_table
+        end
+        return [self, wait_for_event_cmd]
+
+      when Messages::DialCompleted
+        if (call = @active_calls[message.uniqueid])
+          @active_calls[call.uniqueid] = call.with(outcome: message.dial_status)
+          rebuild_table
+        end
+        return [self, wait_for_event_cmd]
+
+      when Messages::CallHeld
+        if (call = @active_calls[message.uniqueid])
+          @active_calls[call.uniqueid] = call.with(held: true)
+          rebuild_table
+        end
+        return [self, wait_for_event_cmd]
+
+      when Messages::CallUnheld
+        if (call = @active_calls[message.uniqueid])
+          @active_calls[call.uniqueid] = call.with(held: false)
+          rebuild_table
+        end
+        return [self, wait_for_event_cmd]
+
+      when Messages::CallDialplanUpdate
+        if (call = @active_calls[message.uniqueid])
+          @active_calls[call.uniqueid] = call.with(
+            dialplan_app:   message.application,
+            dialplan_exten: message.exten
           )
           rebuild_table
         end

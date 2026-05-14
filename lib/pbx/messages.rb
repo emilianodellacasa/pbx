@@ -98,6 +98,46 @@ module Pbx
       end
     end
 
+    class DialCompleted < Bubbletea::Message
+      attr_reader :uniqueid, :dial_status
+
+      def initialize(uniqueid:, dial_status:)
+        super()
+        @uniqueid    = uniqueid
+        @dial_status = dial_status
+      end
+    end
+
+    class CallHeld < Bubbletea::Message
+      attr_reader :uniqueid
+
+      def initialize(uniqueid:)
+        super()
+        @uniqueid = uniqueid
+      end
+    end
+
+    class CallUnheld < Bubbletea::Message
+      attr_reader :uniqueid
+
+      def initialize(uniqueid:)
+        super()
+        @uniqueid = uniqueid
+      end
+    end
+
+    class CallDialplanUpdate < Bubbletea::Message
+      attr_reader :uniqueid, :context, :exten, :application
+
+      def initialize(uniqueid:, context:, exten:, application:)
+        super()
+        @uniqueid    = uniqueid
+        @context     = context
+        @exten       = exten
+        @application = application
+      end
+    end
+
     class SystemInfo < Bubbletea::Message
       attr_reader :uptime_secs, :last_reload_secs, :received_at
 

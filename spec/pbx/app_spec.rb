@@ -12,6 +12,16 @@ RSpec.describe Pbx::App do
   let(:bridge)      { Pbx::AmiBridge.new(config, client: fake_client) }
   subject(:app)     { described_class.new(bridge: bridge, config: config) }
 
+  def make_call(**overrides)
+    Pbx::Call.new(
+      uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
+      caller_id: "101", caller_name: "Alice",
+      connected_to: nil, state: "Ring", started_at: Time.now,
+      outcome: nil, held: false, dialplan_app: nil, dialplan_exten: nil,
+      **overrides
+    )
+  end
+
   describe "#init" do
     it "returns [model, command]" do
       model, cmd = app.init
@@ -185,6 +195,89 @@ RSpec.describe Pbx::App do
       end
     end
 
+    context "with DialCompleted" do
+      before { app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(state: "Up") }
+
+      let(:msg) { Pbx::Messages::DialCompleted.new(uniqueid: "1234567890.1", dial_status: "BUSY") }
+
+      it "sets the call outcome" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].outcome).to eq("BUSY")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+
+      it "ignores unknown uniqueid" do
+        msg_unknown = Pbx::Messages::DialCompleted.new(uniqueid: "unknown", dial_status: "BUSY")
+        expect { app.update(msg_unknown) }.not_to raise_error
+      end
+    end
+
+    context "with CallHeld" do
+      before { app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(state: "Up") }
+
+      let(:msg) { Pbx::Messages::CallHeld.new(uniqueid: "1234567890.1") }
+
+      it "marks the call as held" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].held).to be true
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
+
+    context "with CallUnheld" do
+      before { app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(state: "Up", held: true) }
+
+      let(:msg) { Pbx::Messages::CallUnheld.new(uniqueid: "1234567890.1") }
+
+      it "clears the held flag" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].held).to be false
+      end
+    end
+
+    context "with CallDialplanUpdate" do
+      before { app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(state: "Up") }
+
+      let(:msg) do
+        Pbx::Messages::CallDialplanUpdate.new(
+          uniqueid:    "1234567890.1",
+          context:     "from-internal",
+          exten:       "102",
+          application: "Dial"
+        )
+      end
+
+      it "updates the dialplan app" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].dialplan_app).to eq("Dial")
+      end
+
+      it "updates the dialplan exten" do
+        new_app, = app.update(msg)
+        expect(new_app.active_calls["1234567890.1"].dialplan_exten).to eq("102")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+
+      it "ignores update for unknown uniqueid" do
+        msg_unknown = Pbx::Messages::CallDialplanUpdate.new(
+          uniqueid: "unknown", context: "x", exten: "x", application: "Dial"
+        )
+        expect { app.update(msg_unknown) }.not_to raise_error
+      end
+    end
+
     context "view mode switching" do
       before { app.instance_variable_set(:@status, :connected) }
 
@@ -246,11 +339,7 @@ RSpec.describe Pbx::App do
 
     context "with CallEnded" do
       before do
-        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
-          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
-          caller_id: "101", caller_name: "Alice",
-          connected_to: nil, state: "Up", started_at: Time.now
-        )
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(state: "Up")
       end
 
       let(:msg) { Pbx::Messages::CallEnded.new(uniqueid: "1234567890.1") }
@@ -268,11 +357,7 @@ RSpec.describe Pbx::App do
 
     context "with CallStateChanged" do
       before do
-        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
-          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
-          caller_id: "101", caller_name: "Alice",
-          connected_to: nil, state: "Ring", started_at: Time.now
-        )
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call
       end
 
       let(:msg) do
@@ -294,11 +379,7 @@ RSpec.describe Pbx::App do
       end
 
       it "preserves existing connected_to when not provided" do
-        app.instance_variable_get(:@active_calls)["1234567890.1"] = Pbx::Call.new(
-          uniqueid: "1234567890.1", channel: "SIP/alice-00000001",
-          caller_id: "101", caller_name: "Alice",
-          connected_to: "102", state: "Up", started_at: Time.now
-        )
+        app.instance_variable_get(:@active_calls)["1234567890.1"] = make_call(connected_to: "102", state: "Up")
         msg_no_connected = Pbx::Messages::CallStateChanged.new(uniqueid: "1234567890.1", state: "Ringing")
         new_app, = app.update(msg_no_connected)
         expect(new_app.active_calls["1234567890.1"].connected_to).to eq("102")
