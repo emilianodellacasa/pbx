@@ -13,17 +13,17 @@ module Pbx
     end
 
     DEFAULTS = {
-      host:              "127.0.0.1",
-      port:              5038,
-      user:              nil,
-      secret:            nil,
-      context:           "default",
+      host: "127.0.0.1",
+      port: 5038,
+      user: nil,
+      secret: nil,
+      context: "default",
       reconnect_backoff: [1, 2, 5, 10]
     }.freeze
 
     def self.load(cli: {})
       from_yaml = cli[:config] ? load_yaml(cli[:config]) : {}
-      merged    = DEFAULTS.merge(from_yaml).merge(compact(cli).except(:config))
+      merged = DEFAULTS.merge(from_yaml).merge(compact(cli).except(:config))
       Value.new(**merged)
     end
 

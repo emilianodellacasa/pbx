@@ -41,13 +41,13 @@ module Pbx
       def self.call(state)
         inner_width = 36
 
-        title   = TITLE_STYLE.width(inner_width).render("PBX Monitor")
+        title = TITLE_STYLE.width(inner_width).render("PBX Monitor")
         version = VERSION_STYLE.width(inner_width).render("v#{Pbx::VERSION}")
 
         divider = Lipgloss::Style.new.foreground("#374151").render("─" * inner_width)
 
         author_row = "#{LABEL_STYLE.render("Author")}  #{VALUE_STYLE.render("Emiliano Della Casa")}"
-        repo_row   = "#{LABEL_STYLE.render("GitHub")}  #{URL_STYLE.render(REPO_URL)}"
+        repo_row = "#{LABEL_STYLE.render("GitHub")}  #{URL_STYLE.render(REPO_URL)}"
 
         hint = HINT_STYLE.width(inner_width).render("Press any key to close")
 
@@ -66,8 +66,8 @@ module Pbx
 
         modal = BOX_STYLE.render(content)
 
-        w = state.width  > 0 ? state.width  : 80
-        h = state.height > 0 ? state.height : 24
+        w = (state.width > 0) ? state.width : 80
+        h = (state.height > 0) ? state.height : 24
         Lipgloss.place(w, h, :center, :center, modal)
       end
     end

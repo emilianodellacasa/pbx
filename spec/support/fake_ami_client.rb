@@ -14,12 +14,13 @@ class FakeAmiClient
   attr_reader :connected, :logged_in, :injected_events
   attr_writer :event_queue
 
-  def initialize(peers: [])
-    @peers           = peers
-    @connected       = false
-    @logged_in       = false
+  def initialize(peers: [], queues: [])
+    @peers = peers
+    @queues = queues
+    @connected = false
+    @logged_in = false
     @injected_events = []
-    @event_queue     = nil
+    @event_queue = nil
   end
 
   def connect
@@ -46,7 +47,20 @@ class FakeAmiClient
       @peers.each { |peer_data| push_event("PeerEntry", peer_data) }
       push_event("PeerlistComplete", "ListItems" => @peers.size.to_s)
     end
-    FakePromise.new(FakeResponse.new(true, { peers: [] }, nil))
+    FakePromise.new(FakeResponse.new(true, {peers: []}, nil))
+  end
+
+  def queue_status
+    if @event_queue
+      @queues.each do |queue_data|
+        queue_name = queue_data.fetch("Queue")
+        members = queue_data.delete("members") || []
+        push_event("QueueParams", queue_data)
+        members.each { |m| push_event("QueueMember", m.merge("Queue" => queue_name)) }
+      end
+      push_event("QueueStatusComplete", "EventList" => "Complete")
+    end
+    FakePromise.new(FakeResponse.new(true, {}, nil))
   end
 
   def event_mask(_mask)
@@ -60,8 +74,8 @@ class FakeAmiClient
   # Inject an AMI event into the client's event pipeline (simulates push events).
   def inject_event(name, headers = {})
     all_headers = headers.merge("Event" => name)
-    raw         = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
-    event       = RubyAsterisk::AMI::Event.new(all_headers.transform_values(&:to_s), raw.freeze)
+    raw = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
+    event = RubyAsterisk::AMI::Event.new(all_headers.transform_values(&:to_s), raw.freeze)
     @injected_events << event
     event
   end
@@ -70,8 +84,8 @@ class FakeAmiClient
 
   def push_event(name, headers = {})
     all_headers = headers.transform_keys(&:to_s).transform_values(&:to_s).merge("Event" => name)
-    raw         = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
-    event       = RubyAsterisk::AMI::Event.new(all_headers, raw.freeze)
-    @event_queue.push({ type: :event, event: event })
+    raw = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
+    event = RubyAsterisk::AMI::Event.new(all_headers, raw.freeze)
+    @event_queue.push({type: :event, event: event})
   end
 end

@@ -50,8 +50,8 @@ module Pbx
 
       def self.missing_params(config)
         params = []
-        params << "host"   if config.host == "127.0.0.1"
-        params << "user"   if config.user.to_s.strip.empty?
+        params << "host" if config.host == "127.0.0.1"
+        params << "user" if config.user.to_s.strip.empty?
         params << "secret" if config.secret.to_s.strip.empty?
         params
       end

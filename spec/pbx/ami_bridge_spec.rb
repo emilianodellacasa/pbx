@@ -10,15 +10,15 @@ RSpec.describe Pbx::AmiBridge do
 
   let(:sip_peers_data) do
     [
-      { "ObjectName" => "alice", "Status" => "OK (3 ms)", "IPaddress" => "192.168.1.10",
-        "IPport" => "5060", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => "Linphone" },
-      { "ObjectName" => "bob", "Status" => "UNREACHABLE", "IPaddress" => "-none-",
-        "IPport" => "0", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => nil }
+      {"ObjectName" => "alice", "Status" => "OK (3 ms)", "IPaddress" => "192.168.1.10",
+       "IPport" => "5060", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => "Linphone"},
+      {"ObjectName" => "bob", "Status" => "UNREACHABLE", "IPaddress" => "-none-",
+       "IPport" => "0", "Type" => "friend", "Dynamic" => "yes", "SIP-Useragent" => nil}
     ]
   end
 
   let(:fake_client) { FakeAmiClient.new(peers: sip_peers_data) }
-  subject(:bridge)  { described_class.new(config, client: fake_client) }
+  subject(:bridge) { described_class.new(config, client: fake_client) }
 
   describe "#connect_and_login" do
     it "connects and logs in successfully" do
@@ -79,11 +79,11 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates PeerStatus Registered event to PeerStatusChanged" do
       event = fake_client.inject_event("PeerStatus",
-                                       "ChannelType" => "SIP",
-                                       "Peer"        => "SIP/alice",
-                                       "PeerStatus"  => "Registered",
-                                       "Address"     => "192.168.1.10:5060")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "ChannelType" => "SIP",
+        "Peer" => "SIP/alice",
+        "PeerStatus" => "Registered",
+        "Address" => "192.168.1.10:5060")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
@@ -95,11 +95,11 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates PeerStatus Unreachable event" do
       event = fake_client.inject_event("PeerStatus",
-                                       "ChannelType" => "SIP",
-                                       "Peer"        => "SIP/bob",
-                                       "PeerStatus"  => "Unreachable",
-                                       "Time"        => "2000")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "ChannelType" => "SIP",
+        "Peer" => "SIP/bob",
+        "PeerStatus" => "Unreachable",
+        "Time" => "2000")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
@@ -110,18 +110,18 @@ RSpec.describe Pbx::AmiBridge do
 
     it "ignores non-SIP PeerStatus events" do
       event_pjsip = fake_client.inject_event("PeerStatus",
-                                             "ChannelType" => "PJSIP",
-                                             "Peer"        => "PJSIP/carol",
-                                             "PeerStatus"  => "Registered")
-      event_sip   = fake_client.inject_event("PeerStatus",
-                                             "ChannelType" => "SIP",
-                                             "Peer"        => "SIP/alice",
-                                             "PeerStatus"  => "Registered",
-                                             "Address"     => "10.0.0.1:5060")
+        "ChannelType" => "PJSIP",
+        "Peer" => "PJSIP/carol",
+        "PeerStatus" => "Registered")
+      event_sip = fake_client.inject_event("PeerStatus",
+        "ChannelType" => "SIP",
+        "Peer" => "SIP/alice",
+        "PeerStatus" => "Registered",
+        "Address" => "10.0.0.1:5060")
 
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({ type: :event, event: event_pjsip })
-      queue.push({ type: :event, event: event_sip })
+      queue.push({type: :event, event: event_pjsip})
+      queue.push({type: :event, event: event_sip})
 
       msg = bridge.next_event
       expect(msg.peer_name).to eq("alice")
@@ -134,12 +134,12 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates Newchannel to CallStarted for SIP channels" do
       event = fake_client.inject_event("Newchannel",
-                                       "Channel"          => "SIP/alice-00000001",
-                                       "Uniqueid"         => "1234567890.1",
-                                       "CallerIDNum"      => "101",
-                                       "CallerIDName"     => "Alice",
-                                       "ChannelStateDesc" => "Ring")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Channel" => "SIP/alice-00000001",
+        "Uniqueid" => "1234567890.1",
+        "CallerIDNum" => "101",
+        "CallerIDName" => "Alice",
+        "ChannelStateDesc" => "Ring")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallStarted)
@@ -152,16 +152,16 @@ RSpec.describe Pbx::AmiBridge do
 
     it "ignores Newchannel for non-SIP channels" do
       event_pjsip = fake_client.inject_event("Newchannel",
-                                             "Channel"  => "PJSIP/alice-00000001",
-                                             "Uniqueid" => "999")
-      event_sip   = fake_client.inject_event("PeerStatus",
-                                             "ChannelType" => "SIP",
-                                             "Peer"        => "SIP/alice",
-                                             "PeerStatus"  => "Registered",
-                                             "Address"     => "10.0.0.1:5060")
+        "Channel" => "PJSIP/alice-00000001",
+        "Uniqueid" => "999")
+      event_sip = fake_client.inject_event("PeerStatus",
+        "ChannelType" => "SIP",
+        "Peer" => "SIP/alice",
+        "PeerStatus" => "Registered",
+        "Address" => "10.0.0.1:5060")
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({ type: :event, event: event_pjsip })
-      queue.push({ type: :event, event: event_sip })
+      queue.push({type: :event, event: event_pjsip})
+      queue.push({type: :event, event: event_sip})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
@@ -169,9 +169,9 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates Hangup to CallEnded for SIP channels" do
       event = fake_client.inject_event("Hangup",
-                                       "Channel"  => "SIP/alice-00000001",
-                                       "Uniqueid" => "1234567890.1")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Channel" => "SIP/alice-00000001",
+        "Uniqueid" => "1234567890.1")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallEnded)
@@ -180,9 +180,9 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates DialBegin to CallStateChanged with Dialing state" do
       event = fake_client.inject_event("DialBegin",
-                                       "Uniqueid"          => "1234567890.1",
-                                       "DestCallerIDNum"   => "102")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Uniqueid" => "1234567890.1",
+        "DestCallerIDNum" => "102")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallStateChanged)
@@ -193,9 +193,9 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates DialEnd to DialCompleted" do
       event = fake_client.inject_event("DialEnd",
-                                       "Uniqueid"    => "1234567890.1",
-                                       "DialStatus"  => "BUSY")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Uniqueid" => "1234567890.1",
+        "DialStatus" => "BUSY")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::DialCompleted)
@@ -205,7 +205,7 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates Hold to CallHeld" do
       event = fake_client.inject_event("Hold", "Uniqueid" => "1234567890.1")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallHeld)
@@ -214,9 +214,9 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates MusicOnHoldStart to CallHeld" do
       event = fake_client.inject_event("MusicOnHoldStart",
-                                       "Uniqueid" => "1234567890.1",
-                                       "Class"    => "default")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Uniqueid" => "1234567890.1",
+        "Class" => "default")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallHeld)
@@ -224,7 +224,7 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates Unhold to CallUnheld" do
       event = fake_client.inject_event("Unhold", "Uniqueid" => "1234567890.1")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallUnheld)
@@ -233,12 +233,12 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates Newexten to CallDialplanUpdate for non-noise apps" do
       event = fake_client.inject_event("Newexten",
-                                       "Uniqueid"     => "1234567890.1",
-                                       "Context"      => "from-internal",
-                                       "Extension"    => "102",
-                                       "Application"  => "Dial",
-                                       "AppData"      => "SIP/102,30")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Uniqueid" => "1234567890.1",
+        "Context" => "from-internal",
+        "Extension" => "102",
+        "Application" => "Dial",
+        "AppData" => "SIP/102,30")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallDialplanUpdate)
@@ -250,17 +250,17 @@ RSpec.describe Pbx::AmiBridge do
 
     it "drops Newexten for noise applications" do
       event_noise = fake_client.inject_event("Newexten",
-                                             "Uniqueid"    => "1234567890.1",
-                                             "Application" => "Set",
-                                             "Extension"   => "s")
-      event_real  = fake_client.inject_event("Newexten",
-                                             "Uniqueid"    => "1234567890.1",
-                                             "Context"     => "from-internal",
-                                             "Extension"   => "102",
-                                             "Application" => "Dial")
+        "Uniqueid" => "1234567890.1",
+        "Application" => "Set",
+        "Extension" => "s")
+      event_real = fake_client.inject_event("Newexten",
+        "Uniqueid" => "1234567890.1",
+        "Context" => "from-internal",
+        "Extension" => "102",
+        "Application" => "Dial")
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({ type: :event, event: event_noise })
-      queue.push({ type: :event, event: event_real })
+      queue.push({type: :event, event: event_noise})
+      queue.push({type: :event, event: event_real})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallDialplanUpdate)
@@ -269,17 +269,156 @@ RSpec.describe Pbx::AmiBridge do
 
     it "translates ChannelStateChange to CallStateChanged for SIP channels" do
       event = fake_client.inject_event("ChannelStateChange",
-                                       "Channel"            => "SIP/alice-00000001",
-                                       "Uniqueid"           => "1234567890.1",
-                                       "ChannelStateDesc"   => "Up",
-                                       "ConnectedLineNum"   => "102")
-      bridge.instance_variable_get(:@queue).push({ type: :event, event: event })
+        "Channel" => "SIP/alice-00000001",
+        "Uniqueid" => "1234567890.1",
+        "ChannelStateDesc" => "Up",
+        "ConnectedLineNum" => "102")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
 
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallStateChanged)
       expect(msg.uniqueid).to eq("1234567890.1")
       expect(msg.state).to eq("Up")
       expect(msg.connected_to).to eq("102")
+    end
+  end
+
+  describe "#discover_queues" do
+    let(:queue_data) do
+      [
+        {
+          "Queue" => "supporto", "Strategy" => "ringall",
+          "Calls" => "2", "Completed" => "50", "Abandoned" => "3", "Holdtime" => "45",
+          "members" => [
+            {"Location" => "SIP/201", "Name" => "Alice", "Status" => "1", "Paused" => "0"},
+            {"Location" => "SIP/202", "Name" => "Bob", "Status" => "2", "Paused" => "1"}
+          ]
+        },
+        {
+          "Queue" => "vendite", "Strategy" => "leastrecent",
+          "Calls" => "0", "Completed" => "20", "Abandoned" => "1", "Holdtime" => "30",
+          "members" => []
+        }
+      ]
+    end
+
+    subject(:bridge) { described_class.new(config, client: FakeAmiClient.new(queues: queue_data)) }
+
+    before { bridge.connect_and_login }
+
+    it "returns a Hash of CallQueue objects keyed by name" do
+      result = bridge.discover_queues
+      expect(result).to be_a(Hash)
+      expect(result.keys).to contain_exactly("supporto", "vendite")
+      expect(result.values).to all(be_a(Pbx::CallQueue))
+    end
+
+    it "populates queue fields" do
+      q = bridge.discover_queues["supporto"]
+      expect(q.strategy).to eq("ringall")
+      expect(q.calls_waiting).to eq(2)
+      expect(q.completed).to eq(50)
+      expect(q.abandoned).to eq(3)
+      expect(q.holdtime).to eq(45)
+    end
+
+    it "attaches members to the queue" do
+      members = bridge.discover_queues["supporto"].members
+      expect(members.keys).to contain_exactly("SIP/201", "SIP/202")
+    end
+
+    it "normalises member status from AMI numeric code" do
+      alice = bridge.discover_queues["supporto"].members["SIP/201"]
+      expect(alice.status).to eq("not_in_use")
+    end
+
+    it "sets paused flag from AMI Paused header" do
+      bob = bridge.discover_queues["supporto"].members["SIP/202"]
+      expect(bob.paused).to be true
+    end
+
+    it "returns empty hash on empty response" do
+      bridge2 = described_class.new(config, client: FakeAmiClient.new(queues: []))
+      bridge2.connect_and_login
+      expect(bridge2.discover_queues).to eq({})
+    end
+  end
+
+  describe "#next_event (queue events)" do
+    before { bridge.connect_and_login }
+
+    it "translates QueueCallerJoin to QueueCallerCountChanged" do
+      event = fake_client.inject_event("QueueCallerJoin",
+        "Queue" => "supporto", "Count" => "3")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueCallerCountChanged)
+      expect(msg.queue).to eq("supporto")
+      expect(msg.count).to eq(3)
+    end
+
+    it "translates QueueCallerLeave to QueueCallerCountChanged" do
+      event = fake_client.inject_event("QueueCallerLeave",
+        "Queue" => "supporto", "Count" => "1")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueCallerCountChanged)
+      expect(msg.count).to eq(1)
+    end
+
+    it "translates QueueCallerAbandon to QueueCallerAbandoned" do
+      event = fake_client.inject_event("QueueCallerAbandon",
+        "Queue" => "supporto")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueCallerAbandoned)
+      expect(msg.queue).to eq("supporto")
+    end
+
+    it "translates QueueMemberStatus to QueueMemberUpdated" do
+      event = fake_client.inject_event("QueueMemberStatus",
+        "Queue" => "supporto",
+        "Location" => "SIP/201",
+        "Name" => "Alice",
+        "Status" => "2",
+        "Paused" => "0")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueMemberUpdated)
+      expect(msg.queue).to eq("supporto")
+      expect(msg.interface).to eq("SIP/201")
+      expect(msg.status).to eq("in_use")
+      expect(msg.paused).to be false
+    end
+
+    it "translates QueueMemberPause to QueueMemberUpdated with nil status" do
+      event = fake_client.inject_event("QueueMemberPause",
+        "Queue" => "supporto",
+        "Interface" => "SIP/201",
+        "MemberName" => "Alice",
+        "Paused" => "1")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueMemberUpdated)
+      expect(msg.status).to be_nil
+      expect(msg.paused).to be true
+    end
+
+    it "translates QueueMemberRemoved to QueueMemberGone" do
+      event = fake_client.inject_event("QueueMemberRemoved",
+        "Queue" => "supporto",
+        "Location" => "SIP/201")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueMemberGone)
+      expect(msg.queue).to eq("supporto")
+      expect(msg.interface).to eq("SIP/201")
     end
   end
 

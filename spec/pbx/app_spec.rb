@@ -9,8 +9,8 @@ RSpec.describe Pbx::App do
   end
 
   let(:fake_client) { FakeAmiClient.new }
-  let(:bridge)      { Pbx::AmiBridge.new(config, client: fake_client) }
-  subject(:app)     { described_class.new(bridge: bridge, config: config) }
+  let(:bridge) { Pbx::AmiBridge.new(config, client: fake_client) }
+  subject(:app) { described_class.new(bridge: bridge, config: config) }
 
   def make_call(**overrides)
     Pbx::Call.new(
@@ -71,9 +71,9 @@ RSpec.describe Pbx::App do
       expect(new_app.show_info).to be false
     end
 
-    it "does not quit when pressing any key while modal is open" do
+    it "does not quit when pressing quit key while modal is open" do
       app.update(key_i)   # open
-      quit_key = Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "q".unpack("U*"))
+      quit_key = Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "e".unpack("U*"))
       app.instance_variable_set(:@show_info, true)
       _, cmd = app.update(quit_key)
       expect(cmd).not_to be_a(Bubbletea::QuitCommand)
@@ -90,11 +90,19 @@ RSpec.describe Pbx::App do
   end
 
   describe "#update" do
-    context "with quit key q" do
+    context "with quit key e" do
       it "returns QuitCommand" do
-        msg = Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "q".unpack("U*"))
+        msg = Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "e".unpack("U*"))
         _, cmd = app.update(msg)
         expect(cmd).to be_a(Bubbletea::QuitCommand)
+      end
+    end
+
+    context "with key q (queues tab)" do
+      it "does not quit" do
+        msg = Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "q".unpack("U*"))
+        _, cmd = app.update(msg)
+        expect(cmd).not_to be_a(Bubbletea::QuitCommand)
       end
     end
 
@@ -119,8 +127,8 @@ RSpec.describe Pbx::App do
       let(:peers) do
         [
           Pbx::Peer.new(id: "alice", name: "alice", ip_address: "192.168.1.10",
-                        ip_port: 5060, status: "registered", type: "friend",
-                        dynamic: "yes", user_agent: nil, rtt_ms: nil, last_change_at: nil)
+            ip_port: 5060, status: "registered", type: "friend",
+            dynamic: "yes", user_agent: nil, rtt_ms: nil, last_change_at: nil)
         ]
       end
       let(:msg) { Pbx::Messages::ConnectionEstablished.new(remote: "127.0.0.1:5038", peers: peers) }
@@ -158,8 +166,8 @@ RSpec.describe Pbx::App do
     context "with PeerStatusChanged" do
       before do
         peer = Pbx::Peer.new(id: "alice", name: "alice", ip_address: "192.168.1.10",
-                             ip_port: 5060, status: "registered", type: "friend",
-                             dynamic: "yes", user_agent: nil, rtt_ms: 5, last_change_at: nil)
+          ip_port: 5060, status: "registered", type: "friend",
+          dynamic: "yes", user_agent: nil, rtt_ms: 5, last_change_at: nil)
         app.instance_variable_get(:@extensions)["alice"] = peer
         app.instance_variable_set(:@status, :connected)
       end
@@ -248,9 +256,9 @@ RSpec.describe Pbx::App do
 
       let(:msg) do
         Pbx::Messages::CallDialplanUpdate.new(
-          uniqueid:    "1234567890.1",
-          context:     "from-internal",
-          exten:       "102",
+          uniqueid: "1234567890.1",
+          context: "from-internal",
+          exten: "102",
           application: "Dial"
         )
       end
@@ -283,6 +291,7 @@ RSpec.describe Pbx::App do
 
       let(:key_p) { Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "p".unpack("U*")) }
       let(:key_c) { Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "c".unpack("U*")) }
+      let(:key_q) { Bubbletea::KeyMessage.new(key_type: Bubbletea::KeyMessage::KEY_RUNES, runes: "q".unpack("U*")) }
 
       it "starts in :peers mode" do
         expect(app.view_mode).to eq(:peers)
@@ -299,22 +308,151 @@ RSpec.describe Pbx::App do
         expect(new_app.view_mode).to eq(:peers)
       end
 
+      it "switches to :queues mode on 'q'" do
+        new_app, = app.update(key_q)
+        expect(new_app.view_mode).to eq(:queues)
+      end
+
       it "does not switch mode when not connected" do
         app.instance_variable_set(:@status, :connecting)
         new_app, = app.update(key_c)
         expect(new_app.view_mode).to eq(:peers)
+      end
+
+      it "does not switch to :queues when not connected" do
+        app.instance_variable_set(:@status, :connecting)
+        new_app, = app.update(key_q)
+        expect(new_app.view_mode).to eq(:peers)
+      end
+    end
+
+    def make_queue(**overrides)
+      Pbx::CallQueue.new(
+        name: "supporto", strategy: "ringall", calls_waiting: 0,
+        completed: 10, abandoned: 1, holdtime: 30, members: {},
+        **overrides
+      )
+    end
+
+    def make_member(**overrides)
+      Pbx::QueueMember.new(
+        queue: "supporto", name: "Alice", interface: "SIP/201",
+        status: "not_in_use", paused: false,
+        **overrides
+      )
+    end
+
+    context "with QueueCallerCountChanged" do
+      before do
+        app.instance_variable_get(:@queues)["supporto"] = make_queue(calls_waiting: 0)
+        app.instance_variable_set(:@status, :connected)
+      end
+
+      let(:msg) { Pbx::Messages::QueueCallerCountChanged.new(queue: "supporto", count: 3) }
+
+      it "updates calls_waiting" do
+        new_app, = app.update(msg)
+        expect(new_app.queues["supporto"].calls_waiting).to eq(3)
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+
+      it "ignores unknown queue" do
+        msg_unknown = Pbx::Messages::QueueCallerCountChanged.new(queue: "unknown", count: 1)
+        expect { app.update(msg_unknown) }.not_to raise_error
+      end
+    end
+
+    context "with QueueCallerAbandoned" do
+      before do
+        app.instance_variable_get(:@queues)["supporto"] = make_queue(abandoned: 2)
+        app.instance_variable_set(:@status, :connected)
+      end
+
+      let(:msg) { Pbx::Messages::QueueCallerAbandoned.new(queue: "supporto") }
+
+      it "increments abandoned count" do
+        new_app, = app.update(msg)
+        expect(new_app.queues["supporto"].abandoned).to eq(3)
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
+
+    context "with QueueMemberUpdated" do
+      before do
+        app.instance_variable_get(:@queues)["supporto"] = make_queue
+        app.instance_variable_set(:@status, :connected)
+      end
+
+      let(:msg) do
+        Pbx::Messages::QueueMemberUpdated.new(
+          queue: "supporto", interface: "SIP/201", name: "Alice",
+          status: "in_use", paused: false
+        )
+      end
+
+      it "upserts the member" do
+        new_app, = app.update(msg)
+        member = new_app.queues["supporto"].members["SIP/201"]
+        expect(member).not_to be_nil
+        expect(member.status).to eq("in_use")
+      end
+
+      it "preserves status when nil (pause event)" do
+        app.instance_variable_get(:@queues)["supporto"] =
+          make_queue(members: {"SIP/201" => make_member(status: "in_use")})
+        pause_msg = Pbx::Messages::QueueMemberUpdated.new(
+          queue: "supporto", interface: "SIP/201", name: "Alice",
+          status: nil, paused: true
+        )
+        new_app, = app.update(pause_msg)
+        member = new_app.queues["supporto"].members["SIP/201"]
+        expect(member.status).to eq("in_use")
+        expect(member.paused).to be true
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+    end
+
+    context "with QueueMemberGone" do
+      before do
+        members = {"SIP/201" => make_member}
+        app.instance_variable_get(:@queues)["supporto"] = make_queue(members: members)
+        app.instance_variable_set(:@status, :connected)
+      end
+
+      let(:msg) { Pbx::Messages::QueueMemberGone.new(queue: "supporto", interface: "SIP/201") }
+
+      it "removes the member" do
+        new_app, = app.update(msg)
+        expect(new_app.queues["supporto"].members).not_to have_key("SIP/201")
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
       end
     end
 
     context "with CallStarted" do
       let(:msg) do
         Pbx::Messages::CallStarted.new(
-          uniqueid:    "1234567890.1",
-          channel:     "SIP/alice-00000001",
-          caller_id:   "101",
+          uniqueid: "1234567890.1",
+          channel: "SIP/alice-00000001",
+          caller_id: "101",
           caller_name: "Alice",
-          state:       "Ring",
-          started_at:  Time.now
+          state: "Ring",
+          started_at: Time.now
         )
       end
 
@@ -362,8 +500,8 @@ RSpec.describe Pbx::App do
 
       let(:msg) do
         Pbx::Messages::CallStateChanged.new(
-          uniqueid:     "1234567890.1",
-          state:        "Up",
+          uniqueid: "1234567890.1",
+          state: "Up",
           connected_to: "102"
         )
       end

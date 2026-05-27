@@ -8,28 +8,28 @@ module Pbx
   module Views
     module ExtensionTable
       COLUMNS = [
-        { title: "Peer",       width: 16 },
-        { title: "Status",     width: 14 },
-        { title: "IP Address", width: 17 },
-        { title: "Port",       width: 6  },
-        { title: "Type",       width: 8  },
-        { title: "RTT (ms)",   width: 9  },
-        { title: "Changed",    width: 12 }
+        {title: "Peer", width: 16},
+        {title: "Status", width: 14},
+        {title: "IP Address", width: 17},
+        {title: "Port", width: 6},
+        {title: "Type", width: 8},
+        {title: "RTT (ms)", width: 9},
+        {title: "Changed", width: 12}
       ].freeze
 
-      HEADER_STYLE   = Lipgloss::Style.new.bold(true).foreground("#a78bfa")
+      HEADER_STYLE = Lipgloss::Style.new.bold(true).foreground("#a78bfa")
       SELECTED_STYLE = Lipgloss::Style.new.bold(true).foreground("#ffffff").background("#7c3aed")
 
       EMPTY_STYLE = Lipgloss::Style.new.foreground("#6b7280").italic(true).padding(2, 4)
 
       STATUS_DOTS = {
-        "registered"   => "●",
-        "reachable"    => "●",
-        "lagged"       => "◑",
-        "unreachable"  => "○",
+        "registered" => "●",
+        "reachable" => "●",
+        "lagged" => "◑",
+        "unreachable" => "○",
         "unregistered" => "·",
-        "unmonitored"  => "·",
-        "unknown"      => "·"
+        "unmonitored" => "·",
+        "unknown" => "·"
       }.freeze
 
       def self.build(peers, table_height)
@@ -46,7 +46,7 @@ module Pbx
         }
 
         Bubbles::Table.new(columns: COLUMNS, rows: rows, height: table_height).tap do |t|
-          t.header_style   = HEADER_STYLE
+          t.header_style = HEADER_STYLE
           t.selected_style = SELECTED_STYLE
         end
       end
@@ -57,7 +57,7 @@ module Pbx
 
       # Plain-text status for table cells — ANSI codes break Bubbles::Table width math.
       def self.status_text(status)
-        dot   = STATUS_DOTS.fetch(status.to_s, "·")
+        dot = STATUS_DOTS.fetch(status.to_s, "·")
         label = Status.describe(status)
         "#{dot} #{label}"
       end
@@ -73,8 +73,8 @@ module Pbx
         return "—" unless time
 
         secs = (Time.now - time).to_i
-        return "Just now"           if secs < 5
-        return "#{secs}s ago"      if secs < 60
+        return "Just now" if secs < 5
+        return "#{secs}s ago" if secs < 60
         return "#{secs / 60}m ago" if secs < 3600
 
         "#{secs / 3600}h ago"

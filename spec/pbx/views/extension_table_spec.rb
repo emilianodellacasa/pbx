@@ -4,13 +4,13 @@ RSpec.describe Pbx::Views::ExtensionTable do
   let(:peers) do
     {
       "alice" => Pbx::Peer.new(id: "alice", name: "alice", ip_address: "192.168.1.10",
-                               ip_port: 5060, status: "registered", type: "friend",
-                               dynamic: "yes", user_agent: "Linphone", rtt_ms: 3,
-                               last_change_at: nil),
-      "bob"   => Pbx::Peer.new(id: "bob", name: "bob", ip_address: nil,
-                               ip_port: nil, status: "unreachable", type: "friend",
-                               dynamic: "yes", user_agent: nil, rtt_ms: nil,
-                               last_change_at: Time.now - 30)
+        ip_port: 5060, status: "registered", type: "friend",
+        dynamic: "yes", user_agent: "Linphone", rtt_ms: 3,
+        last_change_at: nil),
+      "bob" => Pbx::Peer.new(id: "bob", name: "bob", ip_address: nil,
+        ip_port: nil, status: "unreachable", type: "friend",
+        dynamic: "yes", user_agent: nil, rtt_ms: nil,
+        last_change_at: Time.now - 30)
     }
   end
 

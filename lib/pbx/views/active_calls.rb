@@ -7,45 +7,45 @@ module Pbx
   module Views
     module ActiveCalls
       COLUMNS = [
-        { title: "Channel", width: 14 },
-        { title: "State",   width: 14 },
-        { title: "App",     width: 14 },
-        { title: "With",    width: 18 },
-        { title: "For",     width: 10 }
+        {title: "Channel", width: 14},
+        {title: "State", width: 14},
+        {title: "App", width: 14},
+        {title: "With", width: 18},
+        {title: "For", width: 10}
       ].freeze
 
-      HEADER_STYLE   = Lipgloss::Style.new.bold(true).foreground("#f59e0b")
+      HEADER_STYLE = Lipgloss::Style.new.bold(true).foreground("#f59e0b")
       SELECTED_STYLE = Lipgloss::Style.new.bold(true).foreground("#ffffff").background("#d97706")
-      TITLE_STYLE    = Lipgloss::Style.new.bold(true).foreground("#f59e0b").padding(0, 1)
-      SEP_STYLE      = Lipgloss::Style.new.foreground("#4b5563")
+      TITLE_STYLE = Lipgloss::Style.new.bold(true).foreground("#f59e0b").padding(0, 1)
+      SEP_STYLE = Lipgloss::Style.new.foreground("#4b5563")
 
       STATE_SYMBOLS = {
-        "up"       => "▶",
-        "ringing"  => "◎",
-        "ring"     => "◎",
-        "dialing"  => "→",
-        "offhook"  => "·"
+        "up" => "▶",
+        "ringing" => "◎",
+        "ring" => "◎",
+        "dialing" => "→",
+        "offhook" => "·"
       }.freeze
 
       OUTCOME_SYMBOLS = {
-        "ANSWER"      => "▶",
-        "BUSY"        => "✕",
-        "NOANSWER"    => "⌀",
-        "CANCEL"      => "←",
+        "ANSWER" => "▶",
+        "BUSY" => "✕",
+        "NOANSWER" => "⌀",
+        "CANCEL" => "←",
         "CHANUNAVAIL" => "✗",
-        "CONGESTION"  => "!"
+        "CONGESTION" => "!"
       }.freeze
 
       OUTCOME_LABELS = {
-        "BUSY"        => "Busy",
-        "NOANSWER"    => "No answer",
-        "CANCEL"      => "Cancelled",
+        "BUSY" => "Busy",
+        "NOANSWER" => "No answer",
+        "CANCEL" => "Cancelled",
         "CHANUNAVAIL" => "Unavailable",
-        "CONGESTION"  => "Congestion"
+        "CONGESTION" => "Congestion"
       }.freeze
 
       def self.render(calls, width, table_height)
-        sep   = SEP_STYLE.render("─" * [width, 1].max)
+        sep = SEP_STYLE.render("─" * [width, 1].max)
         title = TITLE_STYLE.render("Active Calls (#{calls.size})")
         table = build(calls, table_height)
         Lipgloss.join_vertical(:left, sep, title, table.view)
@@ -53,19 +53,19 @@ module Pbx
 
       def self.build(calls, table_height)
         rows = calls.values
-                    .sort_by { |c| c.started_at || Time.now }
-                    .map { |call|
-                      [
-                        short_channel(call.channel),
-                        state_text(call),
-                        call.dialplan_app || "—",
-                        call.connected_to.to_s.empty? ? "—" : call.connected_to,
-                        duration(call.started_at)
-                      ]
-                    }
+          .sort_by { |c| c.started_at || Time.now }
+          .map { |call|
+            [
+              short_channel(call.channel),
+              state_text(call),
+              call.dialplan_app || "—",
+              call.connected_to.to_s.empty? ? "—" : call.connected_to,
+              duration(call.started_at)
+            ]
+          }
 
         Bubbles::Table.new(columns: COLUMNS, rows: rows, height: table_height).tap do |t|
-          t.header_style   = HEADER_STYLE
+          t.header_style = HEADER_STYLE
           t.selected_style = SELECTED_STYLE
         end
       end
@@ -80,12 +80,12 @@ module Pbx
         return "⏸ Hold" if call.held
 
         if call.outcome && call.outcome != "ANSWER"
-          sym   = OUTCOME_SYMBOLS.fetch(call.outcome, "?")
+          sym = OUTCOME_SYMBOLS.fetch(call.outcome, "?")
           label = OUTCOME_LABELS.fetch(call.outcome, call.outcome.downcase.capitalize)
           return "#{sym} #{label}"
         end
 
-        key    = call.state.to_s.downcase
+        key = call.state.to_s.downcase
         symbol = STATE_SYMBOLS.fetch(key, "·")
         "#{symbol} #{call.state.to_s.capitalize}"
       end

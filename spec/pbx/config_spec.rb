@@ -5,7 +5,7 @@ require "tempfile"
 RSpec.describe Pbx::Config do
   subject(:load) { described_class.load(cli: cli_opts) }
 
-  let(:cli_opts) { { user: "admin", secret: "s3cret" } }
+  let(:cli_opts) { {user: "admin", secret: "s3cret"} }
 
   describe "defaults" do
     it "uses 127.0.0.1 as default host" do
@@ -22,7 +22,7 @@ RSpec.describe Pbx::Config do
   end
 
   describe "CLI flag precedence" do
-    let(:cli_opts) { { host: "10.0.0.1", port: 5039, user: "u", secret: "p" } }
+    let(:cli_opts) { {host: "10.0.0.1", port: 5039, user: "u", secret: "p"} }
 
     it "uses CLI host over default" do
       expect(load.host).to eq("10.0.0.1")
@@ -53,7 +53,7 @@ RSpec.describe Pbx::Config do
 
     after { yaml_file.unlink }
 
-    let(:cli_opts) { { config: yaml_file.path } }
+    let(:cli_opts) { {config: yaml_file.path} }
 
     it "loads host from YAML" do
       expect(load.host).to eq("pbx.local")
@@ -68,7 +68,7 @@ RSpec.describe Pbx::Config do
     end
 
     context "when CLI flag overrides YAML" do
-      let(:cli_opts) { { config: yaml_file.path, host: "override.local" } }
+      let(:cli_opts) { {config: yaml_file.path, host: "override.local"} }
 
       it "prefers CLI flag" do
         expect(load.host).to eq("override.local")
@@ -82,7 +82,7 @@ RSpec.describe Pbx::Config do
 
   describe "#complete?" do
     context "when user and secret are present" do
-      let(:cli_opts) { { user: "admin", secret: "s3cret" } }
+      let(:cli_opts) { {user: "admin", secret: "s3cret"} }
 
       it "returns true" do
         expect(load.complete?).to be true
@@ -90,7 +90,7 @@ RSpec.describe Pbx::Config do
     end
 
     context "when user is missing" do
-      let(:cli_opts) { { secret: "pass" } }
+      let(:cli_opts) { {secret: "pass"} }
 
       it "returns false" do
         expect(load.complete?).to be false
@@ -102,7 +102,7 @@ RSpec.describe Pbx::Config do
     end
 
     context "when secret is missing" do
-      let(:cli_opts) { { user: "admin" } }
+      let(:cli_opts) { {user: "admin"} }
 
       it "returns false" do
         expect(load.complete?).to be false
@@ -119,7 +119,7 @@ RSpec.describe Pbx::Config do
   end
 
   describe "YAML file not found" do
-    let(:cli_opts) { { config: "/nonexistent/path.yml" } }
+    let(:cli_opts) { {config: "/nonexistent/path.yml"} }
 
     it "raises Config::Error" do
       expect { load }.to raise_error(Pbx::Config::Error, /not found/)
