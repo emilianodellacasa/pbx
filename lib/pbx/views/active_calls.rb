@@ -44,11 +44,11 @@ module Pbx
         "CONGESTION" => "Congestion"
       }.freeze
 
-      def self.render(calls, width, table_height)
+      def self.render(calls, width, table_height = 1, table: nil)
         sep = SEP_STYLE.render("─" * [width, 1].max)
         title = TITLE_STYLE.render("Active Calls (#{calls.size})")
-        table = build(calls, table_height)
-        Lipgloss.join_vertical(:left, sep, title, table.view)
+        t = table || build(calls, table_height)
+        Lipgloss.join_vertical(:left, sep, title, t.view)
       end
 
       def self.build(calls, table_height)
@@ -73,7 +73,7 @@ module Pbx
       def self.short_channel(channel)
         return "—" unless channel
 
-        channel.sub(/\ASIP\//i, "").split("-").first || channel
+        channel.sub(/\A(SIP|PJSIP)\//i, "").split("-").first || channel
       end
 
       def self.state_text(call)

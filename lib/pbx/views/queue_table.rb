@@ -22,13 +22,13 @@ module Pbx
       SEP_STYLE = Lipgloss::Style.new.foreground("#4b5563")
       EMPTY_STYLE = Lipgloss::Style.new.foreground("#6b7280").italic(true).padding(2, 4)
 
-      def self.render(queues, width, table_height)
+      def self.render(queues, width, table_height = 1, table: nil)
         return EMPTY_STYLE.render("No queues discovered yet…") if queues.empty?
 
         sep = SEP_STYLE.render("─" * [width, 1].max)
         title = TITLE_STYLE.render("Queues (#{queues.size})")
-        table = build(queues, table_height)
-        Lipgloss.join_vertical(:left, sep, title, table.view)
+        t = table || build(queues, table_height)
+        Lipgloss.join_vertical(:left, sep, title, t.view)
       end
 
       def self.build(queues, table_height)

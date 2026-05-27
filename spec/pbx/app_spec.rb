@@ -447,6 +447,16 @@ RSpec.describe Pbx::App do
         expect(member.paused).to be true
       end
 
+      it "creates the queue with defaults when it does not exist yet" do
+        msg_new = Pbx::Messages::QueueMemberUpdated.new(
+          queue: "nuova", interface: "SIP/301", name: "Bob",
+          status: "not_in_use", paused: false
+        )
+        new_app, = app.update(msg_new)
+        expect(new_app.queues).to have_key("nuova")
+        expect(new_app.queues["nuova"].members["SIP/301"].name).to eq("Bob")
+      end
+
       it "returns a wait_for_event Proc command" do
         _, cmd = app.update(msg)
         expect(cmd).to be_a(Proc)

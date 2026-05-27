@@ -34,6 +34,8 @@ module Pbx
       @width = 80
       @height = 24
       @table = nil
+      @calls_table = nil
+      @queues_table = nil
       @show_info = false
       @view_mode = :peers
       @spinner = Bubbles::Spinner.new(spinner: Bubbles::Spinners::DOT)
@@ -82,15 +84,29 @@ module Pbx
           return [self, nil]
         end
 
-        if @table && (@status == :connected) && @view_mode == :peers
-          @table, table_cmd = @table.update(message)
+        active_table = case @view_mode
+        when :calls then @calls_table
+        when :queues then @queues_table
+        else @table
+        end
+        if active_table && @status == :connected
+          updated, table_cmd = active_table.update(message)
+          case @view_mode
+          when :calls then @calls_table = updated
+          when :queues then @queues_table = updated
+          else @table = updated
+          end
           return [self, table_cmd]
         end
 
       when Bubbletea::WindowSizeMessage
         @width = message.width
         @height = message.height
-        rebuild_table if @status == :connected
+        if @status == :connected
+          rebuild_table
+          rebuild_calls_table
+          rebuild_queues_table
+        end
 
       when Messages::ConnectionEstablished
         @status = :connected
@@ -98,6 +114,7 @@ module Pbx
         message.peers.each { |p| @extensions[p.id] = p }
         @queues = message.queues
         rebuild_table
+        rebuild_queues_table
         return [self, wait_for_event_cmd]
 
       when Messages::ConnectionLost
@@ -143,11 +160,13 @@ module Pbx
           dialplan_exten: nil
         )
         rebuild_table
+        rebuild_calls_table
         return [self, wait_for_event_cmd]
 
       when Messages::CallEnded
         @active_calls.delete(message.uniqueid)
         rebuild_table
+        rebuild_calls_table
         return [self, wait_for_event_cmd]
 
       when Messages::CallStateChanged
@@ -157,6 +176,7 @@ module Pbx
             state: message.state
           )
           rebuild_table
+          rebuild_calls_table
         end
         return [self, wait_for_event_cmd]
 
@@ -164,6 +184,7 @@ module Pbx
         if (call = @active_calls[message.uniqueid])
           @active_calls[call.uniqueid] = call.with(outcome: message.dial_status)
           rebuild_table
+          rebuild_calls_table
         end
         return [self, wait_for_event_cmd]
 
@@ -171,6 +192,7 @@ module Pbx
         if (call = @active_calls[message.uniqueid])
           @active_calls[call.uniqueid] = call.with(held: true)
           rebuild_table
+          rebuild_calls_table
         end
         return [self, wait_for_event_cmd]
 
@@ -178,6 +200,7 @@ module Pbx
         if (call = @active_calls[message.uniqueid])
           @active_calls[call.uniqueid] = call.with(held: false)
           rebuild_table
+          rebuild_calls_table
         end
         return [self, wait_for_event_cmd]
 
@@ -188,6 +211,7 @@ module Pbx
             dialplan_exten: message.exten
           )
           rebuild_table
+          rebuild_calls_table
         end
         return [self, wait_for_event_cmd]
 
@@ -197,46 +221,53 @@ module Pbx
             completed: q.completed + 1,
             last_holdtime: message.holdtime
           )
+          rebuild_queues_table
         end
         return [self, wait_for_event_cmd]
 
       when Messages::QueueCallerCountChanged
         if (q = @queues[message.queue])
           @queues[message.queue] = q.with(calls_waiting: message.count)
+          rebuild_queues_table
         end
         return [self, wait_for_event_cmd]
 
       when Messages::QueueCallerAbandoned
         if (q = @queues[message.queue])
           @queues[message.queue] = q.with(abandoned: q.abandoned + 1)
+          rebuild_queues_table
         end
         return [self, wait_for_event_cmd]
 
       when Messages::QueueMemberUpdated
-        if (q = @queues[message.queue])
-          existing = q.members[message.interface]
-          updated = if existing
-            existing.with(
-              name: message.name.empty? ? existing.name : message.name,
-              status: message.status || existing.status,
-              paused: message.paused
-            )
-          else
-            QueueMember.new(
-              queue: message.queue,
-              name: message.name,
-              interface: message.interface,
-              status: message.status || "unknown",
-              paused: message.paused
-            )
-          end
-          @queues[message.queue] = q.with(members: q.members.merge(message.interface => updated))
+        q = @queues[message.queue] || CallQueue.new(
+          name: message.queue, strategy: "unknown", calls_waiting: 0,
+          completed: 0, abandoned: 0, holdtime: 0, members: {}
+        )
+        existing = q.members[message.interface]
+        updated_member = if existing
+          existing.with(
+            name: message.name.empty? ? existing.name : message.name,
+            status: message.status || existing.status,
+            paused: message.paused
+          )
+        else
+          QueueMember.new(
+            queue: message.queue,
+            name: message.name,
+            interface: message.interface,
+            status: message.status || "unknown",
+            paused: message.paused
+          )
         end
+        @queues[message.queue] = q.with(members: q.members.merge(message.interface => updated_member))
+        rebuild_queues_table
         return [self, wait_for_event_cmd]
 
       when Messages::QueueMemberGone
         if (q = @queues[message.queue])
           @queues[message.queue] = q.with(members: q.members.reject { |k, _| k == message.interface })
+          rebuild_queues_table
         end
         return [self, wait_for_event_cmd]
 
@@ -279,13 +310,11 @@ module Pbx
         ""
       else
         if @view_mode == :calls
-          calls_table_height = [@active_calls.size, @height - 8].min
-          calls_table_height = 1 if calls_table_height < 1
-          Views::ActiveCalls.render(@active_calls, @width, calls_table_height)
+          height = [[@active_calls.size, @height - 8].min, 1].max
+          Views::ActiveCalls.render(@active_calls, @width, height, table: @calls_table)
         elsif @view_mode == :queues
-          queues_table_height = [@queues.size, @height - 8].min
-          queues_table_height = 1 if queues_table_height < 1
-          Views::QueueTable.render(@queues, @width, queues_table_height)
+          height = [[@queues.size, @height - 8].min, 1].max
+          Views::QueueTable.render(@queues, @width, height, table: @queues_table)
         else
           @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
         end
@@ -295,6 +324,16 @@ module Pbx
     def rebuild_table
       table_height = [@height - 6, 5].max
       @table = Views::ExtensionTable.build(@extensions, table_height)
+    end
+
+    def rebuild_calls_table
+      height = [[@active_calls.size, @height - 8].min, 1].max
+      @calls_table = Views::ActiveCalls.build(@active_calls, height)
+    end
+
+    def rebuild_queues_table
+      height = [[@queues.size, @height - 8].min, 1].max
+      @queues_table = Views::QueueTable.build(@queues, height)
     end
 
     def connect_cmd
