@@ -72,6 +72,44 @@ RSpec.describe Pbx::AmiBridge do
       bob = bridge.discover_peers.find { |p| p.name == "bob" }
       expect(bob.rtt_ms).to be_nil
     end
+
+    context "with PJSIP endpoints" do
+      let(:pjsip_data) do
+        [
+          {"ObjectName" => "carol", "DeviceState" => "Not in use"},
+          {"ObjectName" => "dave", "DeviceState" => "Unavailable"}
+        ]
+      end
+
+      subject(:bridge) { described_class.new(config, client: FakeAmiClient.new(peers: sip_peers_data, pjsip_endpoints: pjsip_data)) }
+
+      before { bridge.connect_and_login }
+
+      it "includes both SIP and PJSIP peers" do
+        names = bridge.discover_peers.map(&:name)
+        expect(names).to include("alice", "bob", "carol", "dave")
+      end
+
+      it "marks PJSIP endpoints with type PJSIP" do
+        carol = bridge.discover_peers.find { |p| p.name == "carol" }
+        expect(carol.type).to eq("PJSIP")
+      end
+
+      it "maps Not in use DeviceState to registered" do
+        carol = bridge.discover_peers.find { |p| p.name == "carol" }
+        expect(carol.status).to eq("registered")
+      end
+
+      it "maps Unavailable DeviceState to unreachable" do
+        dave = bridge.discover_peers.find { |p| p.name == "dave" }
+        expect(dave.status).to eq("unreachable")
+      end
+
+      it "sets ip_address to nil for PJSIP endpoints" do
+        carol = bridge.discover_peers.find { |p| p.name == "carol" }
+        expect(carol.ip_address).to be_nil
+      end
+    end
   end
 
   describe "#next_event" do
@@ -108,10 +146,10 @@ RSpec.describe Pbx::AmiBridge do
       expect(msg.rtt_ms).to eq(2000)
     end
 
-    it "ignores non-SIP PeerStatus events" do
-      event_pjsip = fake_client.inject_event("PeerStatus",
-        "ChannelType" => "PJSIP",
-        "Peer" => "PJSIP/carol",
+    it "ignores PeerStatus events for unknown channel types (e.g. IAX2)" do
+      event_iax = fake_client.inject_event("PeerStatus",
+        "ChannelType" => "IAX2",
+        "Peer" => "IAX2/carol",
         "PeerStatus" => "Registered")
       event_sip = fake_client.inject_event("PeerStatus",
         "ChannelType" => "SIP",
@@ -120,7 +158,7 @@ RSpec.describe Pbx::AmiBridge do
         "Address" => "10.0.0.1:5060")
 
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({type: :event, event: event_pjsip})
+      queue.push({type: :event, event: event_iax})
       queue.push({type: :event, event: event_sip})
 
       msg = bridge.next_event
@@ -150,9 +188,9 @@ RSpec.describe Pbx::AmiBridge do
       expect(msg.state).to eq("Ring")
     end
 
-    it "ignores Newchannel for non-SIP channels" do
-      event_pjsip = fake_client.inject_event("Newchannel",
-        "Channel" => "PJSIP/alice-00000001",
+    it "ignores Newchannel for non-SIP/PJSIP channels (e.g. Local)" do
+      event_local = fake_client.inject_event("Newchannel",
+        "Channel" => "Local/s@default-00000001",
         "Uniqueid" => "999")
       event_sip = fake_client.inject_event("PeerStatus",
         "ChannelType" => "SIP",
@@ -160,7 +198,7 @@ RSpec.describe Pbx::AmiBridge do
         "PeerStatus" => "Registered",
         "Address" => "10.0.0.1:5060")
       queue = bridge.instance_variable_get(:@queue)
-      queue.push({type: :event, event: event_pjsip})
+      queue.push({type: :event, event: event_local})
       queue.push({type: :event, event: event_sip})
 
       msg = bridge.next_event
@@ -265,6 +303,68 @@ RSpec.describe Pbx::AmiBridge do
       msg = bridge.next_event
       expect(msg).to be_a(Pbx::Messages::CallDialplanUpdate)
       expect(msg.application).to eq("Dial")
+    end
+
+    it "translates Newchannel to CallStarted for PJSIP channels" do
+      event = fake_client.inject_event("Newchannel",
+        "Channel" => "PJSIP/carol-00000001",
+        "Uniqueid" => "1234567890.2",
+        "CallerIDNum" => "201",
+        "CallerIDName" => "Carol",
+        "ChannelStateDesc" => "Ring")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallStarted)
+      expect(msg.channel).to eq("PJSIP/carol-00000001")
+    end
+
+    it "translates Hangup to CallEnded for PJSIP channels" do
+      event = fake_client.inject_event("Hangup",
+        "Channel" => "PJSIP/carol-00000001",
+        "Uniqueid" => "1234567890.2")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallEnded)
+    end
+
+    it "translates PJSIP PeerStatus Reachable to PeerStatusChanged" do
+      event = fake_client.inject_event("PeerStatus",
+        "ChannelType" => "PJSIP",
+        "Peer" => "PJSIP/carol",
+        "PeerStatus" => "Reachable")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.peer_name).to eq("carol")
+      expect(msg.status).to eq("registered")
+    end
+
+    it "translates PJSIP PeerStatus Unreachable to PeerStatusChanged" do
+      event = fake_client.inject_event("PeerStatus",
+        "ChannelType" => "PJSIP",
+        "Peer" => "PJSIP/carol",
+        "PeerStatus" => "Unreachable")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.status).to eq("unreachable")
+    end
+
+    it "translates ChannelStateChange to CallStateChanged for PJSIP channels" do
+      event = fake_client.inject_event("ChannelStateChange",
+        "Channel" => "PJSIP/carol-00000001",
+        "Uniqueid" => "1234567890.2",
+        "ChannelStateDesc" => "Up",
+        "ConnectedLineNum" => "102")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::CallStateChanged)
+      expect(msg.state).to eq("Up")
     end
 
     it "translates ChannelStateChange to CallStateChanged for SIP channels" do

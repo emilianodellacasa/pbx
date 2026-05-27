@@ -20,6 +20,10 @@ module Pbx
         @log = log
       end
 
+      def pjsip_show_endpoints
+        execute "PJSIPShowEndpoints", {}
+      end
+
       private
 
       def dispatch_message(msg)
@@ -56,44 +60,7 @@ module Pbx
     end
 
     def discover_peers
-      # Trigger the SIPPeers AMI action; Asterisk responds with a flood of
-      # PeerEntry events (not inline in the response payload) followed by
-      # PeerlistComplete to signal the end of the list.
-      log "[DISCOVER] Triggering sip_peers action..."
-      @client.sip_peers
-
-      peers = []
-      non_peer_events = []
-
-      loop do
-        raw = @queue.pop
-        return [] if raw == SENTINEL
-
-        next unless raw[:type] == :event
-
-        event = raw[:event]
-        next unless event.is_a?(RubyAsterisk::AMI::Event)
-
-        case event.name
-        when "PeerEntry"
-          log "[DISCOVER] PeerEntry: #{event.headers["ObjectName"]} status=#{event.headers["Status"]}"
-          peer = peer_from_sip(event.headers)
-          peers << peer if peer
-        when "PeerlistComplete"
-          log "[DISCOVER] PeerlistComplete — collected #{peers.size} peers"
-          break
-        else
-          non_peer_events << raw
-        end
-      end
-
-      non_peer_events.each { |e| @queue.push(e) }
-      log "[DISCOVER] Returning #{peers.size} peers: #{peers.map(&:name).inspect}"
-      peers
-    rescue => e
-      log "[DISCOVER] Error: #{e.class}: #{e.message}\n#{e.backtrace&.first(3)&.join("\n")}"
-      warn "SIP peer discovery failed: #{e.message}"
-      []
+      discover_sip_peers + discover_pjsip_endpoints
     end
 
     def discover_queues
@@ -131,6 +98,9 @@ module Pbx
           log "[QUEUES] QueueStatusComplete — collected #{queues.size} queues"
           break
         else
+          # Same re-queue trade-off as discover_sip_peers: events are appended
+          # to the tail of the queue, losing chronological order with respect to
+          # events that arrived in the meantime.
           non_queue_events << raw
         end
       end
@@ -182,6 +152,81 @@ module Pbx
       @debug_log.flush
     rescue IOError
       nil
+    end
+
+    def discover_sip_peers
+      log "[DISCOVER] Triggering sip_peers action..."
+      @client.sip_peers
+
+      peers = []
+      non_peer_events = []
+
+      loop do
+        raw = @queue.pop
+        return [] if raw == SENTINEL
+
+        next unless raw[:type] == :event
+
+        event = raw[:event]
+        next unless event.is_a?(RubyAsterisk::AMI::Event)
+
+        case event.name
+        when "PeerEntry"
+          log "[DISCOVER] PeerEntry: #{event.headers["ObjectName"]} status=#{event.headers["Status"]}"
+          peer = peer_from_sip(event.headers)
+          peers << peer if peer
+        when "PeerlistComplete"
+          log "[DISCOVER] PeerlistComplete — collected #{peers.size} peers"
+          break
+        else
+          # Non-SIP events that arrived during discovery are buffered and
+          # re-pushed after the loop. This preserves no chronological order
+          # guarantee but is safe at startup where ordering rarely matters.
+          non_peer_events << raw
+        end
+      end
+
+      non_peer_events.each { |e| @queue.push(e) }
+      peers
+    rescue => e
+      log "[DISCOVER] Error: #{e.class}: #{e.message}\n#{e.backtrace&.first(3)&.join("\n")}"
+      warn "SIP peer discovery failed: #{e.message}"
+      []
+    end
+
+    def discover_pjsip_endpoints
+      log "[PJSIP] Triggering PJSIPShowEndpoints action..."
+      @client.pjsip_show_endpoints
+
+      peers = []
+      non_ep_events = []
+
+      loop do
+        raw = @queue.pop
+        return [] if raw == SENTINEL
+
+        next unless raw[:type] == :event
+
+        event = raw[:event]
+        next unless event.is_a?(RubyAsterisk::AMI::Event)
+
+        case event.name
+        when "EndpointList"
+          peer = peer_from_pjsip(event.headers)
+          peers << peer if peer
+        when "EndpointListComplete"
+          log "[PJSIP] EndpointListComplete — collected #{peers.size} PJSIP endpoints"
+          break
+        else
+          non_ep_events << raw
+        end
+      end
+
+      non_ep_events.each { |e| @queue.push(e) }
+      peers
+    rescue => e
+      log "[PJSIP] Error: #{e.class}: #{e.message}"
+      []
     end
 
     def queue_from_params(data)
@@ -236,6 +281,24 @@ module Pbx
       )
     end
 
+    def peer_from_pjsip(data)
+      name = data["ObjectName"].to_s
+      return nil if name.empty?
+
+      Peer.new(
+        id: name,
+        name: name,
+        ip_address: nil,
+        ip_port: nil,
+        status: Status.from_pjsip_device_state(data["DeviceState"].to_s),
+        type: "PJSIP",
+        dynamic: nil,
+        user_agent: nil,
+        rtt_ms: nil,
+        last_change_at: nil
+      )
+    end
+
     DIALPLAN_NOISE_APPS = %w[
       NoOp Verbose Set GotoIf GotoIfTime Goto Return ExecIf Wait
       Answer Progress Ringing ResetCDR NoCDR UserEvent Log Macro MacroExit
@@ -258,7 +321,7 @@ module Pbx
         )
 
       when "Newchannel"
-        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+        return nil unless h["Channel"].to_s.match?(/\A(SIP|PJSIP)\//i)
 
         Messages::CallStarted.new(
           uniqueid: h["Uniqueid"],
@@ -270,7 +333,7 @@ module Pbx
         )
 
       when "Hangup"
-        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+        return nil unless h["Channel"].to_s.match?(/\A(SIP|PJSIP)\//i)
 
         Messages::CallEnded.new(uniqueid: h["Uniqueid"])
 
@@ -284,7 +347,7 @@ module Pbx
         )
 
       when "ChannelStateChange"
-        return nil unless h["Channel"].to_s.match?(/\ASIP\//i)
+        return nil unless h["Channel"].to_s.match?(/\A(SIP|PJSIP)\//i)
 
         connected = h["ConnectedLineNum"].to_s
         connected = nil if connected.empty? || connected == "<unknown>"
@@ -374,9 +437,10 @@ module Pbx
         Messages::QueueMemberGone.new(queue: queue, interface: interface)
 
       when "PeerStatus"
-        return nil unless h["ChannelType"]&.upcase == "SIP"
+        channel_type = h["ChannelType"].to_s.upcase
+        return nil unless %w[SIP PJSIP].include?(channel_type)
 
-        name = h["Peer"].to_s.sub(/\ASIP\//i, "")
+        name = h["Peer"].to_s.sub(/\A(SIP|PJSIP)\//i, "")
         return nil if name.empty?
 
         address = h["Address"].to_s

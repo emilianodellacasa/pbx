@@ -14,9 +14,10 @@ class FakeAmiClient
   attr_reader :connected, :logged_in, :injected_events
   attr_writer :event_queue
 
-  def initialize(peers: [], queues: [])
+  def initialize(peers: [], queues: [], pjsip_endpoints: [])
     @peers = peers
     @queues = queues
+    @pjsip_endpoints = pjsip_endpoints
     @connected = false
     @logged_in = false
     @injected_events = []
@@ -59,6 +60,14 @@ class FakeAmiClient
         members.each { |m| push_event("QueueMember", m.merge("Queue" => queue_name)) }
       end
       push_event("QueueStatusComplete", "EventList" => "Complete")
+    end
+    FakePromise.new(FakeResponse.new(true, {}, nil))
+  end
+
+  def pjsip_show_endpoints
+    if @event_queue
+      @pjsip_endpoints.each { |ep| push_event("EndpointList", ep) }
+      push_event("EndpointListComplete", "EventList" => "Complete")
     end
     FakePromise.new(FakeResponse.new(true, {}, nil))
   end

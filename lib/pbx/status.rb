@@ -59,6 +59,20 @@ module Pbx
       QUEUE_MEMBER_STATES[code.to_s] || "unknown"
     end
 
+    # Maps PJSIP DeviceState strings ("Not in use", "In use", "Unavailable"…)
+    # to the same internal keys used by describe/color.
+    # Any reachable state (in use, ringing, on hold…) maps to "registered" so
+    # the peers table shows the endpoint as up.
+    def self.from_pjsip_device_state(raw)
+      return "unknown" unless raw
+
+      s = raw.to_s.downcase
+      return "unknown" if s.empty?
+      return "unreachable" if s.include?("unavailable") || s.include?("invalid")
+
+      "registered"
+    end
+
     # Extracts the RTT in milliseconds from strings like "OK (5 ms)".
     def self.rtt_from_sip(raw)
       return nil unless raw

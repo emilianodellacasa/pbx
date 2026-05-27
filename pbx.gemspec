@@ -19,6 +19,9 @@ Gem::Specification.new do |spec|
   spec.files = Dir["{lib,exe,examples}/**/*", "LICENSE", "README.md"]
   spec.require_paths = ["lib"]
 
+  # ruby-asterisk is declared only in the Gemfile (as a git dependency on a
+  # custom branch) and intentionally omitted here. Once the gem is published
+  # to RubyGems, move it here as: spec.add_dependency "ruby-asterisk", "~> 1.0"
   spec.add_dependency "thor", "~> 1.3"
   spec.add_dependency "bubbletea", "~> 0.1"
   spec.add_dependency "lipgloss", "~> 0.2"
