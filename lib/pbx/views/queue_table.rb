@@ -13,7 +13,7 @@ module Pbx
         {title: "Agents", width: 8},
         {title: "Completed", width: 11},
         {title: "Abandoned", width: 11},
-        {title: "Avg Hold", width: 10}
+        {title: "Hold", width: 10}
       ].freeze
 
       HEADER_STYLE = Lipgloss::Style.new.bold(true).foreground("#34d399")
@@ -42,7 +42,7 @@ module Pbx
             "#{avail}/#{total}",
             q.completed.to_s,
             q.abandoned.to_s,
-            format_holdtime(q.holdtime)
+            format_holdtime(q.last_holdtime || q.holdtime)
           ]
         }
 

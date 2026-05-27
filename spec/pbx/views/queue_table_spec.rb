@@ -67,6 +67,18 @@ RSpec.describe Pbx::Views::QueueTable do
       table = described_class.build({"supporto" => q}, 5)
       expect(table.view).to include("1/3")
     end
+
+    it "prefers last_holdtime over holdtime when available" do
+      q = make_queue(holdtime: 30, last_holdtime: 72)
+      table = described_class.build({"supporto" => q}, 5)
+      expect(table.view).to include("1m 12s")
+    end
+
+    it "falls back to holdtime when last_holdtime is nil" do
+      q = make_queue(holdtime: 90, last_holdtime: nil)
+      table = described_class.build({"supporto" => q}, 5)
+      expect(table.view).to include("1m 30s")
+    end
   end
 
   describe ".format_holdtime" do

@@ -342,6 +342,35 @@ RSpec.describe Pbx::App do
       )
     end
 
+    context "with QueueCallCompleted" do
+      before do
+        app.instance_variable_get(:@queues)["supporto"] = make_queue(completed: 10, holdtime: 30)
+        app.instance_variable_set(:@status, :connected)
+      end
+
+      let(:msg) { Pbx::Messages::QueueCallCompleted.new(queue: "supporto", holdtime: 72) }
+
+      it "increments the completed count" do
+        new_app, = app.update(msg)
+        expect(new_app.queues["supporto"].completed).to eq(11)
+      end
+
+      it "updates last_holdtime with the call's hold time" do
+        new_app, = app.update(msg)
+        expect(new_app.queues["supporto"].last_holdtime).to eq(72)
+      end
+
+      it "returns a wait_for_event Proc command" do
+        _, cmd = app.update(msg)
+        expect(cmd).to be_a(Proc)
+      end
+
+      it "ignores unknown queue" do
+        msg_unknown = Pbx::Messages::QueueCallCompleted.new(queue: "unknown", holdtime: 10)
+        expect { app.update(msg_unknown) }.not_to raise_error
+      end
+    end
+
     context "with QueueCallerCountChanged" do
       before do
         app.instance_variable_get(:@queues)["supporto"] = make_queue(calls_waiting: 0)

@@ -139,6 +139,16 @@ module Pbx
       end
     end
 
+    class QueueCallCompleted < Bubbletea::Message
+      attr_reader :queue, :holdtime
+
+      def initialize(queue:, holdtime:)
+        super()
+        @queue = queue
+        @holdtime = holdtime
+      end
+    end
+
     class QueueCallerCountChanged < Bubbletea::Message
       attr_reader :queue, :count
 

@@ -251,11 +251,16 @@ module Pbx
 
       QueueMember.new(
         queue: data["Queue"].to_s,
-        name: data["Name"].to_s,
+        name: member_name_from(data),
         interface: interface,
         status: Status.queue_member_state(data["Status"].to_s),
         paused: data["Paused"].to_s == "1"
       )
+    end
+
+    def member_name_from(h)
+      name = h["MemberName"].to_s
+      name.empty? ? h["Name"].to_s : name
     end
 
     def peer_from_sip(data)
@@ -409,7 +414,7 @@ module Pbx
         Messages::QueueMemberUpdated.new(
           queue: queue,
           interface: interface,
-          name: h["Name"].to_s,
+          name: member_name_from(h),
           status: Status.queue_member_state(h["Status"].to_s),
           paused: h["Paused"].to_s == "1"
         )
@@ -423,9 +428,36 @@ module Pbx
         Messages::QueueMemberUpdated.new(
           queue: queue,
           interface: interface,
-          name: h["MemberName"].to_s,
+          name: member_name_from(h),
           status: nil,
           paused: h["Paused"].to_s == "1"
+        )
+
+      when "AgentComplete"
+        queue = h["Queue"].to_s
+        return nil if queue.empty?
+
+        Messages::QueueCallCompleted.new(
+          queue: queue,
+          holdtime: h["HoldTime"].to_i
+        )
+
+      when "ContactStatus"
+        aor = h["AOR"].to_s
+        return nil if aor.empty?
+
+        status_raw = h["ContactStatus"].to_s
+        return nil if status_raw.empty?
+
+        rtt_usec = h["RoundtripUsec"].to_s.then { |t| t.empty? ? nil : (t.to_f / 1000).round }
+
+        Messages::PeerStatusChanged.new(
+          peer_name: aor,
+          status: Status.from_sip(status_raw),
+          ip_address: nil,
+          ip_port: nil,
+          rtt_ms: rtt_usec,
+          at: Time.now
         )
 
       when "QueueMemberRemoved"

@@ -520,6 +520,72 @@ RSpec.describe Pbx::AmiBridge do
       expect(msg.queue).to eq("supporto")
       expect(msg.interface).to eq("SIP/201")
     end
+
+    it "uses MemberName header when Name is absent (QueueMemberStatus)" do
+      event = fake_client.inject_event("QueueMemberStatus",
+        "Queue" => "supporto",
+        "Location" => "SIP/201",
+        "MemberName" => "Alice Via MemberName",
+        "Status" => "1",
+        "Paused" => "0")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg.name).to eq("Alice Via MemberName")
+    end
+
+    it "falls back to Name when MemberName is absent (QueueMemberStatus)" do
+      event = fake_client.inject_event("QueueMemberStatus",
+        "Queue" => "supporto",
+        "Location" => "SIP/201",
+        "Name" => "Alice Via Name",
+        "Status" => "1",
+        "Paused" => "0")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg.name).to eq("Alice Via Name")
+    end
+
+    it "translates AgentComplete to QueueCallCompleted" do
+      event = fake_client.inject_event("AgentComplete",
+        "Queue" => "supporto",
+        "Member" => "SIP/201",
+        "MemberName" => "Alice",
+        "HoldTime" => "72",
+        "TalkTime" => "120")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::QueueCallCompleted)
+      expect(msg.queue).to eq("supporto")
+      expect(msg.holdtime).to eq(72)
+    end
+
+    it "translates ContactStatus Reachable to PeerStatusChanged" do
+      event = fake_client.inject_event("ContactStatus",
+        "AOR" => "carol",
+        "ContactStatus" => "Reachable",
+        "RoundtripUsec" => "4500")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.peer_name).to eq("carol")
+      expect(msg.status).to eq("registered")
+      expect(msg.rtt_ms).to eq(5)
+    end
+
+    it "translates ContactStatus Unreachable to PeerStatusChanged" do
+      event = fake_client.inject_event("ContactStatus",
+        "AOR" => "carol",
+        "ContactStatus" => "Unreachable")
+      bridge.instance_variable_get(:@queue).push({type: :event, event: event})
+
+      msg = bridge.next_event
+      expect(msg).to be_a(Pbx::Messages::PeerStatusChanged)
+      expect(msg.status).to eq("unreachable")
+    end
   end
 
   describe "#shutdown" do

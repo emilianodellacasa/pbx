@@ -191,6 +191,15 @@ module Pbx
         end
         return [self, wait_for_event_cmd]
 
+      when Messages::QueueCallCompleted
+        if (q = @queues[message.queue])
+          @queues[message.queue] = q.with(
+            completed: q.completed + 1,
+            last_holdtime: message.holdtime
+          )
+        end
+        return [self, wait_for_event_cmd]
+
       when Messages::QueueCallerCountChanged
         if (q = @queues[message.queue])
           @queues[message.queue] = q.with(calls_waiting: message.count)
