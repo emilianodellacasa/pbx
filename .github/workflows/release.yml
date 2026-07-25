@@ -54,7 +54,9 @@ jobs:
             exit 1
           fi
 
+      # Secret name matches the one already used by the ruby-asterisk repo.
+      # GitHub secrets do not cross repositories, so it must also be added here.
       - name: Push to RubyGems
         env:
-          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN }}
         run: gem push "pbx-$(ruby -r./lib/pbx/version -e 'print Pbx::VERSION').gem"

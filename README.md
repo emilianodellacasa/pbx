@@ -96,9 +96,11 @@ by pushing a `v*` tag. The workflow refuses to publish unless the tag matches
 `Pbx::VERSION`, the suite and linter pass, and the version is not already on
 RubyGems.
 
-One-time setup: create an API key on RubyGems with the **push** scope, then add
-it to the repository as the `RUBYGEMS_API_KEY` secret
-(*Settings → Secrets and variables → Actions*).
+One-time setup: add a RubyGems API key with the **push** scope to this
+repository as the `RUBYGEMS_AUTH_TOKEN` secret (*Settings → Secrets and
+variables → Actions*). The name matches the secret the `ruby-asterisk` repo
+already uses; GitHub secrets do not cross repositories, so it has to be added
+here too even if that token is reused.
 
 To cut a release:
 
