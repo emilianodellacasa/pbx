@@ -1,0 +1,292 @@
+GIT
+  remote: https://github.com/emilianodellacasa/ruby-asterisk
+  revision: e5bb56566312bae050c350233b541c87bebfc507
+  branch: milestone_1
+  specs:
+    ruby-asterisk (1.0.0)
+      async (~> 2.0)
+      faraday (>= 1.0)
+      faye-websocket (~> 0.11)
+
+PATH
+  remote: .
+  specs:
+    pbx (0.1.0)
+      bubbles (~> 0.1)
+      bubbletea (~> 0.1)
+      bubblezone (~> 0.1)
+      lipgloss (~> 0.2)
+      thor (~> 1.3)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ast (2.4.3)
+    async (2.39.0)
+      console (~> 1.29)
+      fiber-annotation
+      io-event (~> 1.11)
+      metrics (~> 0.12)
+      traces (~> 0.18)
+    base64 (0.3.0)
+    bubbles (0.1.1)
+      bubbletea
+      harmonica
+      lipgloss
+    bubbletea (0.1.4)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-aarch64-linux-gnu)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-aarch64-linux-musl)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-arm-linux-gnu)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-arm-linux-musl)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-arm64-darwin)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-x86-linux-gnu)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-x86-linux-musl)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-x86_64-darwin)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-x86_64-linux-gnu)
+      lipgloss (~> 0.1)
+    bubbletea (0.1.4-x86_64-linux-musl)
+      lipgloss (~> 0.1)
+    bubblezone (0.1.2)
+    bubblezone (0.1.2-aarch64-linux-gnu)
+    bubblezone (0.1.2-aarch64-linux-musl)
+    bubblezone (0.1.2-arm-linux-gnu)
+    bubblezone (0.1.2-arm-linux-musl)
+    bubblezone (0.1.2-arm64-darwin)
+    bubblezone (0.1.2-x86-linux-gnu)
+    bubblezone (0.1.2-x86-linux-musl)
+    bubblezone (0.1.2-x86_64-darwin)
+    bubblezone (0.1.2-x86_64-linux-gnu)
+    bubblezone (0.1.2-x86_64-linux-musl)
+    coderay (1.1.3)
+    console (1.34.3)
+      fiber-annotation
+      fiber-local (~> 1.1)
+      json
+    diff-lcs (1.6.2)
+    eventmachine (1.2.7)
+    faraday (2.14.1)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-net_http (3.4.2)
+      net-http (~> 0.5)
+    faye-websocket (0.12.0)
+      eventmachine (>= 0.12.0)
+      websocket-driver (>= 0.8.0)
+    fiber-annotation (0.2.0)
+    fiber-local (1.1.0)
+      fiber-storage
+    fiber-storage (1.0.1)
+    harmonica (0.1.1)
+    io-console (0.8.2)
+    io-event (1.16.0)
+    json (2.19.5)
+    language_server-protocol (3.17.0.5)
+    lint_roller (1.1.0)
+    lipgloss (0.2.2)
+    lipgloss (0.2.2-aarch64-linux-gnu)
+    lipgloss (0.2.2-aarch64-linux-musl)
+    lipgloss (0.2.2-arm-linux-gnu)
+    lipgloss (0.2.2-arm-linux-musl)
+    lipgloss (0.2.2-arm64-darwin)
+    lipgloss (0.2.2-x86-linux-gnu)
+    lipgloss (0.2.2-x86-linux-musl)
+    lipgloss (0.2.2-x86_64-darwin)
+    lipgloss (0.2.2-x86_64-linux-gnu)
+    lipgloss (0.2.2-x86_64-linux-musl)
+    logger (1.7.0)
+    method_source (1.1.0)
+    metrics (0.15.0)
+    net-http (0.9.1)
+      uri (>= 0.11.1)
+    parallel (1.28.0)
+    parser (3.3.11.1)
+      ast (~> 2.4.1)
+      racc
+    prism (1.9.0)
+    pry (0.16.0)
+      coderay (~> 1.1)
+      method_source (~> 1.0)
+      reline (>= 0.6.0)
+    racc (1.8.1)
+    rainbow (3.1.1)
+    rake (13.4.2)
+    regexp_parser (2.12.0)
+    reline (0.6.3)
+      io-console (~> 0.5)
+    rspec (3.13.2)
+      rspec-core (~> 3.13.0)
+      rspec-expectations (~> 3.13.0)
+      rspec-mocks (~> 3.13.0)
+    rspec-core (3.13.6)
+      rspec-support (~> 3.13.0)
+    rspec-expectations (3.13.5)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-mocks (3.13.8)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-support (3.13.7)
+    rubocop (1.84.2)
+      json (~> 2.3)
+      language_server-protocol (~> 3.17.0.2)
+      lint_roller (~> 1.1.0)
+      parallel (~> 1.10)
+      parser (>= 3.3.0.2)
+      rainbow (>= 2.2.2, < 4.0)
+      regexp_parser (>= 2.9.3, < 3.0)
+      rubocop-ast (>= 1.49.0, < 2.0)
+      ruby-progressbar (~> 1.7)
+      unicode-display_width (>= 2.4.0, < 4.0)
+    rubocop-ast (1.49.1)
+      parser (>= 3.3.7.2)
+      prism (~> 1.7)
+    rubocop-performance (1.26.1)
+      lint_roller (~> 1.1)
+      rubocop (>= 1.75.0, < 2.0)
+      rubocop-ast (>= 1.47.1, < 2.0)
+    ruby-progressbar (1.13.0)
+    standard (1.54.0)
+      language_server-protocol (~> 3.17.0.2)
+      lint_roller (~> 1.0)
+      rubocop (~> 1.84.0)
+      standard-custom (~> 1.0.0)
+      standard-performance (~> 1.8)
+    standard-custom (1.0.2)
+      lint_roller (~> 1.0)
+      rubocop (~> 1.50)
+    standard-performance (1.9.0)
+      lint_roller (~> 1.1)
+      rubocop-performance (~> 1.26.0)
+    thor (1.5.0)
+    traces (0.18.2)
+    unicode-display_width (3.2.0)
+      unicode-emoji (~> 4.1)
+    unicode-emoji (4.2.0)
+    uri (1.1.1)
+    websocket-driver (0.8.0)
+      base64
+      websocket-extensions (>= 0.1.0)
+    websocket-extensions (0.1.5)
+
+PLATFORMS
+  aarch64-linux-gnu
+  aarch64-linux-musl
+  arm-linux-gnu
+  arm-linux-musl
+  arm64-darwin
+  ruby
+  x86-linux-gnu
+  x86-linux-musl
+  x86_64-darwin
+  x86_64-linux-gnu
+  x86_64-linux-musl
+
+DEPENDENCIES
+  pbx!
+  pry (~> 0.15)
+  rake (~> 13.2)
+  rspec (~> 3.13)
+  ruby-asterisk!
+  standard (~> 1.40)
+
+CHECKSUMS
+  ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
+  async (2.39.0) sha256=df18730073f2bbb45788077dfa20cb365ecc1b9453969f44de6796b5191a00aa
+  base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
+  bubbles (0.1.1) sha256=ac16a9adef1cd4d51d7246ea6cda1a745a56321cc21a49e150e7446d62797d05
+  bubbletea (0.1.4) sha256=33c3ea5eb7ab03160b942a9a8062ba04d0af2245a0b6b7457853ac4bd3218f69
+  bubbletea (0.1.4-aarch64-linux-gnu) sha256=9a1200916572dd5518da5d6a66bb136274fa577ecaa67c59dbecd34b872b48fc
+  bubbletea (0.1.4-aarch64-linux-musl) sha256=9e9e1ea40a6e57b4280a7e1e02673831a8f54b8a38f730dcb6597ce35272e176
+  bubbletea (0.1.4-arm-linux-gnu) sha256=6dc9601376848dfe2337685cefc3fc9420d2d7f44c04e74079766006f0dfae6b
+  bubbletea (0.1.4-arm-linux-musl) sha256=954a4ac9a27faa48077394b6c040115106044dbb1d6231089983d83bff306cae
+  bubbletea (0.1.4-arm64-darwin) sha256=112af8ba51b38c4281b648ce43375e9bbe7b666dbb30c8b8d1cd13b4e163e6cb
+  bubbletea (0.1.4-x86-linux-gnu) sha256=91b85eac6806eea2cb4bc774be6ec6f0a666d9009f2b03fd948613a4b915f388
+  bubbletea (0.1.4-x86-linux-musl) sha256=0a79f92bb7ac9cf6ad08bc4399cff6c14d63e01ccf9eb2e0de7b5c7e4a51e774
+  bubbletea (0.1.4-x86_64-darwin) sha256=8b73c14e4a9a8cb14735edf18c71bf568dee2b4340b0f8f572480665cff3d817
+  bubbletea (0.1.4-x86_64-linux-gnu) sha256=c1a06df5828c3af8ed664bf08591eba4bcb16aa44c58f8d21f7e2a01c2dea885
+  bubbletea (0.1.4-x86_64-linux-musl) sha256=b8972ffc21590b83442c1b88d83539c412dea964866560ab1dd263c531fac989
+  bubblezone (0.1.2) sha256=b6ddd6807caafb89e49bfdeea49ffc0276261e1599624037115b8f701417f67c
+  bubblezone (0.1.2-aarch64-linux-gnu) sha256=da261d6486b41d634f986fb864e077c84c01045d71d643e3587b6d820f9bc331
+  bubblezone (0.1.2-aarch64-linux-musl) sha256=7b20a58dab5a1f1025839fc191e9d6bca142e3685b3763eac075bb231450cd28
+  bubblezone (0.1.2-arm-linux-gnu) sha256=0f9fd12dc9617ce6ea95c7f00915685f1efadf8ca131f49c154fba0dacac9d1c
+  bubblezone (0.1.2-arm-linux-musl) sha256=d319ace4ccaff795fdfd11e0a4820dc0d9b716f7f7bacd2778d4d507fff95170
+  bubblezone (0.1.2-arm64-darwin) sha256=a0b85377c57d5c69634d7862e45e62977a83f9458da4ed6f1d76a327f6b7933b
+  bubblezone (0.1.2-x86-linux-gnu) sha256=852e81c5b505043432483db5cbc03b21dad5f5f15a98cf1f85e1a26f6e1cf730
+  bubblezone (0.1.2-x86-linux-musl) sha256=346ccc0de13ec0c523bad87e2ef34755d035a06c82180844ad9aa0719cd69760
+  bubblezone (0.1.2-x86_64-darwin) sha256=f4ecf3dd9789b1b9491da26352b96e468333baa4b9fb03cafa40feb5ad75ac5a
+  bubblezone (0.1.2-x86_64-linux-gnu) sha256=b3ba8547f794397587cbdefe3638d354030a8736f074f3a2061caeed560fe0c7
+  bubblezone (0.1.2-x86_64-linux-musl) sha256=72b4319336663b3bcdf09e2cf4ef9ea266479155af35c26c8e934c06c7343b6f
+  coderay (1.1.3) sha256=dc530018a4684512f8f38143cd2a096c9f02a1fc2459edcfe534787a7fc77d4b
+  console (1.34.3) sha256=869fbd74697efc4c606f102d2812b0b008e4e7fd738a91c591e8577140ec0dcc
+  diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
+  eventmachine (1.2.7) sha256=994016e42aa041477ba9cff45cbe50de2047f25dd418eba003e84f0d16560972
+  faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
+  faraday-net_http (3.4.2) sha256=f147758260d3526939bf57ecf911682f94926a3666502e24c69992765875906c
+  faye-websocket (0.12.0) sha256=ad9f7dfcd0306d0a13baeee450729657661129af15bb5f38716c242484ab42e1
+  fiber-annotation (0.2.0) sha256=7abfadf1d119f508867d4103bf231c0354d019cc39a5738945dec2edadaf6c03
+  fiber-local (1.1.0) sha256=c885f94f210fb9b05737de65d511136ea602e00c5105953748aa0f8793489f06
+  fiber-storage (1.0.1) sha256=f48e5b6d8b0be96dac486332b55cee82240057065dc761c1ea692b2e719240e1
+  harmonica (0.1.1) sha256=587da9bc55ffb6387c0ffb9243bb3b03d57d1ebaf29a17282d3912a3443f397a
+  io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
+  io-event (1.16.0) sha256=2b41d93dbb2094a477e5093f0988701274e1e07409eba62c087b0aec603e7b90
+  json (2.19.5) sha256=218a18553e4801d579ca7e0f5bc72bafd776d7397238a1fb4e74db5b0a812c59
+  language_server-protocol (3.17.0.5) sha256=fd1e39a51a28bf3eec959379985a72e296e9f9acfce46f6a79d31ca8760803cc
+  lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
+  lipgloss (0.2.2) sha256=d803bef2ce53aa7b113d032a4e1f8d3f6fb1841532b379c0b2bfff23a3af85e9
+  lipgloss (0.2.2-aarch64-linux-gnu) sha256=cb2e5db7fc14d85ec919223b5d16ad6d7be0ced096fec60e9f6e253d1c8718cd
+  lipgloss (0.2.2-aarch64-linux-musl) sha256=e9c445531db8aa85efceeab73f09530dc53ed8f5b61aa78ab7fe2d6afb179b30
+  lipgloss (0.2.2-arm-linux-gnu) sha256=e3f7424f430dd746f6d00bb587192e54f3fdd90a7fac3447da42b23d432952e8
+  lipgloss (0.2.2-arm-linux-musl) sha256=16f76a7a161d5b7ed083167619760ab658bfc4f2c0bd4eecd518e05ad11c3f46
+  lipgloss (0.2.2-arm64-darwin) sha256=fed911706463ed21d249eace2224cd39323e94f4ab2a55ff6763b358b780d18f
+  lipgloss (0.2.2-x86-linux-gnu) sha256=097344416c54f1290543d2320f3816663c44ccd92912df2ac0cdf15988658e08
+  lipgloss (0.2.2-x86-linux-musl) sha256=50cca3b79d3164894c71070a3cfe6d9d6d6a38d02e8598269543201dd50b0f5a
+  lipgloss (0.2.2-x86_64-darwin) sha256=6f5bab39a31f38995c5fb964ca0a1f84af0102814b4406f8ca96f30da54e112e
+  lipgloss (0.2.2-x86_64-linux-gnu) sha256=99b26dfc4eaa2bf2dfd9823f0894a06ef0b8f7f773db70ae8905d1c5d9d663ad
+  lipgloss (0.2.2-x86_64-linux-musl) sha256=a05ebd4d16a441bbe657fafb269d0f9e6d89a1124b3288264efedc427b007703
+  logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
+  method_source (1.1.0) sha256=181301c9c45b731b4769bc81e8860e72f9161ad7d66dd99103c9ab84f560f5c5
+  metrics (0.15.0) sha256=61ded5bac95118e995b1bc9ed4a5f19bc9814928a312a85b200abbdac9039072
+  net-http (0.9.1) sha256=25ba0b67c63e89df626ed8fac771d0ad24ad151a858af2cc8e6a716ca4336996
+  parallel (1.28.0) sha256=33e6de1484baf2524792d178b0913fc8eb94c628d6cfe45599ad4458c638c970
+  parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54
+  pbx (0.1.0)
+  prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
+  pry (0.16.0) sha256=d76c69065698ed1f85e717bd33d7942c38a50868f6b0673c636192b3d1b6054e
+  racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
+  rainbow (3.1.1) sha256=039491aa3a89f42efa1d6dec2fc4e62ede96eb6acd95e52f1ad581182b79bc6a
+  rake (13.4.2) sha256=cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa89283701
+  regexp_parser (2.12.0) sha256=35a916a1d63190ab5c9009457136ae5f3c0c7512d60291d0d1378ba18ce08ebb
+  reline (0.6.3) sha256=1198b04973565b36ec0f11542ab3f5cfeeec34823f4e54cebde90968092b1835
+  rspec (3.13.2) sha256=206284a08ad798e61f86d7ca3e376718d52c0bc944626b2349266f239f820587
+  rspec-core (3.13.6) sha256=a8823c6411667b60a8bca135364351dda34cd55e44ff94c4be4633b37d828b2d
+  rspec-expectations (3.13.5) sha256=33a4d3a1d95060aea4c94e9f237030a8f9eae5615e9bd85718fe3a09e4b58836
+  rspec-mocks (3.13.8) sha256=086ad3d3d17533f4237643de0b5c42f04b66348c28bf6b9c2d3f4a3b01af1d47
+  rspec-support (3.13.7) sha256=0640e5570872aafefd79867901deeeeb40b0c9875a36b983d85f54fb7381c47c
+  rubocop (1.84.2) sha256=5692cea54168f3dc8cb79a6fe95c5424b7ea893c707ad7a4307b0585e88dbf5f
+  rubocop-ast (1.49.1) sha256=4412f3ee70f6fe4546cc489548e0f6fcf76cafcfa80fa03af67098ffed755035
+  rubocop-performance (1.26.1) sha256=cd19b936ff196df85829d264b522fd4f98b6c89ad271fa52744a8c11b8f71834
+  ruby-asterisk (1.0.0)
+  ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
+  standard (1.54.0) sha256=7a4b08f83d9893083c8f03bc486f0feeb6a84d48233b40829c03ef4767ea0100
+  standard-custom (1.0.2) sha256=424adc84179a074f1a2a309bb9cf7cd6bfdb2b6541f20c6bf9436c0ba22a652b
+  standard-performance (1.9.0) sha256=49483d31be448292951d80e5e67cdcb576c2502103c7b40aec6f1b6e9c88e3f2
+  thor (1.5.0) sha256=e3a9e55fe857e44859ce104a84675ab6e8cd59c650a49106a05f55f136425e73
+  traces (0.18.2) sha256=80f1649cb4daace1d7174b81f3b3b7427af0b93047759ba349960cb8f315e214
+  unicode-display_width (3.2.0) sha256=0cdd96b5681a5949cdbc2c55e7b420facae74c4aaf9a9815eee1087cb1853c42
+  unicode-emoji (4.2.0) sha256=519e69150f75652e40bf736106cfbc8f0f73aa3fb6a65afe62fefa7f80b0f80f
+  uri (1.1.1) sha256=379fa58d27ffb1387eaada68c749d1426738bd0f654d812fcc07e7568f5c57c6
+  websocket-driver (0.8.0) sha256=ed0dba4b943c22f17f9a734817e808bc84cdce6a7e22045f5315aa57676d4962
+  websocket-extensions (0.1.5) sha256=1c6ba63092cda343eb53fc657110c71c754c56484aad42578495227d717a8241
+
+BUNDLED WITH
+  4.0.8
