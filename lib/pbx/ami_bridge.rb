@@ -11,6 +11,13 @@ module Pbx
   class AmiBridge
     SENTINEL = :__pbx_shutdown__
 
+    # Seconds to wait for a list action's aggregated reply. Longer than the
+    # gem's 5s default: on a busy PBX a full peer or queue listing is slow.
+    LIST_TIMEOUT = 10
+
+    # AMI frames are CRLF-delimited on the wire; tolerate bare LF too.
+    FRAME_DELIMITER = /\r?\n\r?\n/
+
     # Subclass that routes parsed AMI events into a Ruby Queue,
     # enabling the Bubbletea command loop to consume them.
     class EventClient < RubyAsterisk::AMI::Client
@@ -26,13 +33,16 @@ module Pbx
 
       private
 
-      def dispatch_message(msg)
+      # Hook invoked by the reactor for every unsolicited AMI event. Events that
+      # belong to a list action's reply never arrive here: the gem buffers them
+      # by ActionID and aggregates them into that action's Response instead.
+      def handle_event(event)
         super
         if @log
-          @log.puts "[DISPATCH] type=#{msg[:type]} event=#{msg[:event]&.headers&.inspect}"
+          @log.puts "[DISPATCH] event=#{event.headers.inspect}"
           @log.flush
         end
-        @event_queue.push(msg) if msg[:type] == :event
+        @event_queue.push({type: :event, event: event})
       end
     end
 
@@ -46,8 +56,6 @@ module Pbx
         queue: @queue,
         log: @debug_log
       )
-      # Allow test doubles to receive events via the same queue
-      @client.event_queue = @queue if @client.respond_to?(:event_queue=)
     end
 
     def connect_and_login
@@ -65,47 +73,28 @@ module Pbx
 
     def discover_queues
       log "[QUEUES] Triggering queue_status action..."
-      @client.queue_status
+      # QueueEntry frames are ignored: the caller count is already in the
+      # QueueParams Calls header.
+      entries = list_entries(@client.queue_status, "QueueParams", "QueueMember")
 
       queues = {}
-      non_queue_events = []
-
-      loop do
-        raw = @queue.pop
-        return {} if raw == SENTINEL
-
-        next unless raw[:type] == :event
-
-        event = raw[:event]
-        next unless event.is_a?(RubyAsterisk::AMI::Event)
-
-        case event.name
+      entries.each do |data|
+        case data["Event"]
         when "QueueParams"
-          q = queue_from_params(event.headers)
+          q = queue_from_params(data)
           queues[q.name] = q if q
         when "QueueMember"
-          queue_name = event.headers["Queue"].to_s
+          queue_name = data["Queue"].to_s
           next if queue_name.empty? || !queues[queue_name]
 
-          member = member_from_event(event.headers)
-          if member
-            existing = queues[queue_name]
-            queues[queue_name] = existing.with(members: existing.members.merge(member.interface => member))
-          end
-        when "QueueEntry"
-          # caller count is already in QueueParams Calls header; skip
-        when "QueueStatusComplete"
-          log "[QUEUES] QueueStatusComplete — collected #{queues.size} queues"
-          break
-        else
-          # Same re-queue trade-off as discover_sip_peers: events are appended
-          # to the tail of the queue, losing chronological order with respect to
-          # events that arrived in the meantime.
-          non_queue_events << raw
+          member = member_from_event(data)
+          next unless member
+
+          existing = queues[queue_name]
+          queues[queue_name] = existing.with(members: existing.members.merge(member.interface => member))
         end
       end
 
-      non_queue_events.each { |e| @queue.push(e) }
       log "[QUEUES] Returning #{queues.size} queues: #{queues.keys.inspect}"
       queues
     rescue => e
@@ -156,38 +145,9 @@ module Pbx
 
     def discover_sip_peers
       log "[DISCOVER] Triggering sip_peers action..."
-      @client.sip_peers
-
-      peers = []
-      non_peer_events = []
-
-      loop do
-        raw = @queue.pop
-        return [] if raw == SENTINEL
-
-        next unless raw[:type] == :event
-
-        event = raw[:event]
-        next unless event.is_a?(RubyAsterisk::AMI::Event)
-
-        case event.name
-        when "PeerEntry"
-          log "[DISCOVER] PeerEntry: #{event.headers["ObjectName"]} status=#{event.headers["Status"]}"
-          peer = peer_from_sip(event.headers)
-          peers << peer if peer
-        when "PeerlistComplete"
-          log "[DISCOVER] PeerlistComplete — collected #{peers.size} peers"
-          break
-        else
-          # Non-SIP events that arrived during discovery are buffered and
-          # re-pushed after the loop. This preserves no chronological order
-          # guarantee but is safe at startup where ordering rarely matters.
-          non_peer_events << raw
-        end
-      end
-
-      non_peer_events.each { |e| @queue.push(e) }
-      peers
+      entries = list_entries(@client.sip_peers, "PeerEntry")
+      log "[DISCOVER] collected #{entries.size} peer entries"
+      entries.filter_map { |data| peer_from_sip(data) }
     rescue => e
       log "[DISCOVER] Error: #{e.class}: #{e.message}\n#{e.backtrace&.first(3)&.join("\n")}"
       warn "SIP peer discovery failed: #{e.message}"
@@ -196,37 +156,30 @@ module Pbx
 
     def discover_pjsip_endpoints
       log "[PJSIP] Triggering PJSIPShowEndpoints action..."
-      @client.pjsip_show_endpoints
-
-      peers = []
-      non_ep_events = []
-
-      loop do
-        raw = @queue.pop
-        return [] if raw == SENTINEL
-
-        next unless raw[:type] == :event
-
-        event = raw[:event]
-        next unless event.is_a?(RubyAsterisk::AMI::Event)
-
-        case event.name
-        when "EndpointList"
-          peer = peer_from_pjsip(event.headers)
-          peers << peer if peer
-        when "EndpointListComplete"
-          log "[PJSIP] EndpointListComplete — collected #{peers.size} PJSIP endpoints"
-          break
-        else
-          non_ep_events << raw
-        end
-      end
-
-      non_ep_events.each { |e| @queue.push(e) }
-      peers
+      entries = list_entries(@client.pjsip_show_endpoints, "EndpointList")
+      log "[PJSIP] collected #{entries.size} PJSIP endpoints"
+      entries.filter_map { |data| peer_from_pjsip(data) }
     rescue => e
       log "[PJSIP] Error: #{e.class}: #{e.message}"
       []
+    end
+
+    # AMI list actions reply with an ack frame, one Event frame per item and a
+    # terminating Complete event. ruby-asterisk buffers that frame set by
+    # ActionID and resolves the action's promise with the whole thing, so list
+    # entries are read back from the Response rather than the event stream.
+    #
+    # Returns the header hash of every frame whose Event matches +event_names+,
+    # in arrival order. An action that fails (e.g. SIPpeers with chan_sip
+    # unloaded) resolves with a plain error frame and yields no entries.
+    def list_entries(promise, *event_names)
+      raw = promise&.value(LIST_TIMEOUT)&.raw_response
+      return [] if raw.nil?
+
+      raw.join.split(FRAME_DELIMITER).filter_map do |frame|
+        headers = RubyAsterisk::AMI::Parser.parse_headers(frame)
+        headers if event_names.include?(headers["Event"])
+      end
     end
 
     def queue_from_params(data)

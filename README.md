@@ -62,20 +62,24 @@ CLI flags override YAML values; YAML values override built-in defaults.
 | `p` | Peers tab |
 | `c` | Calls tab |
 | `q` | Queues tab |
-| `↑` / `↓` | Scroll (peers table) |
+| `↑` / `↓` | Scroll the active table |
 | `i` | Info modal |
 | `e` / `Esc` / `Ctrl-C` | Quit |
 
 ## AMI user setup
 
-The monitor only needs read access. A minimal `/etc/asterisk/manager.conf` entry:
+The monitor only needs read access — it issues just `Login`, `SIPpeers`,
+`PJSIPShowEndpoints`, `QueueStatus`, `Events` and `Logoff`, none of which
+require a write class. A minimal `/etc/asterisk/manager.conf` entry:
 
 ```ini
 [monitor]
 secret = s3cret
-read = system,call,agent,user,config,dtmf,reporting,cdr,dialplan
-write = command
+read = system,call,agent,reporting,dialplan
 ```
+
+`system` covers peer and endpoint discovery, `agent` and `reporting` the queue
+events, `call` the channel events and `dialplan` the `Newexten` app updates.
 
 ## Development
 
@@ -84,3 +88,33 @@ bundle exec rspec        # run the test suite
 bundle exec standardrb   # check code style
 bundle exec standardrb --fix  # auto-fix style violations
 ```
+
+## Releasing
+
+Releases are published to RubyGems by `.github/workflows/release.yml`, triggered
+by pushing a `v*` tag. The workflow refuses to publish unless the tag matches
+`Pbx::VERSION`, the suite and linter pass, and the version is not already on
+RubyGems.
+
+One-time setup: add a RubyGems API key with the **push** scope to this
+repository as the `RUBYGEMS_AUTH_TOKEN` secret (*Settings → Secrets and
+variables → Actions*). The name matches the secret the `ruby-asterisk` repo
+already uses; GitHub secrets do not cross repositories, so it has to be added
+here too even if that token is reused.
+
+To cut a release:
+
+```bash
+# 1. bump the version
+$EDITOR lib/pbx/version.rb
+bundle install                     # refresh the version in Gemfile.lock
+git commit -am "Release v0.2.0"
+
+# 2. tag and push — pushing the tag is what publishes
+git tag v0.2.0
+git push origin main --tags
+```
+
+`bundle exec rake release` (from `bundler/gem_tasks`) also works for publishing
+by hand; `allowed_push_host` in the gemspec keeps either path pointed at
+rubygems.org.
