@@ -1,13 +1,3 @@
-GIT
-  remote: https://github.com/emilianodellacasa/ruby-asterisk
-  revision: e5bb56566312bae050c350233b541c87bebfc507
-  branch: milestone_1
-  specs:
-    ruby-asterisk (1.0.0)
-      async (~> 2.0)
-      faraday (>= 1.0)
-      faye-websocket (~> 0.11)
-
 PATH
   remote: .
   specs:
@@ -16,6 +6,7 @@ PATH
       bubbletea (~> 0.1)
       bubblezone (~> 0.1)
       lipgloss (~> 0.2)
+      ruby-asterisk (~> 1.0)
       thor (~> 1.3)
 
 GEM
@@ -72,16 +63,12 @@ GEM
       fiber-local (~> 1.1)
       json
     diff-lcs (1.6.2)
-    eventmachine (1.2.7)
     faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)
       json
       logger
     faraday-net_http (3.4.2)
       net-http (~> 0.5)
-    faye-websocket (0.12.0)
-      eventmachine (>= 0.12.0)
-      websocket-driver (>= 0.8.0)
     fiber-annotation (0.2.0)
     fiber-local (1.1.0)
       fiber-storage
@@ -154,6 +141,11 @@ GEM
       lint_roller (~> 1.1)
       rubocop (>= 1.75.0, < 2.0)
       rubocop-ast (>= 1.47.1, < 2.0)
+    ruby-asterisk (1.0.0)
+      async (~> 2.0)
+      faraday (>= 1.0)
+      logger
+      websocket-driver (~> 0.8)
     ruby-progressbar (1.13.0)
     standard (1.54.0)
       language_server-protocol (~> 3.17.0.2)
@@ -196,7 +188,6 @@ DEPENDENCIES
   pry (~> 0.15)
   rake (~> 13.2)
   rspec (~> 3.13)
-  ruby-asterisk!
   standard (~> 1.40)
 
 CHECKSUMS
@@ -229,10 +220,8 @@ CHECKSUMS
   coderay (1.1.3) sha256=dc530018a4684512f8f38143cd2a096c9f02a1fc2459edcfe534787a7fc77d4b
   console (1.34.3) sha256=869fbd74697efc4c606f102d2812b0b008e4e7fd738a91c591e8577140ec0dcc
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
-  eventmachine (1.2.7) sha256=994016e42aa041477ba9cff45cbe50de2047f25dd418eba003e84f0d16560972
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
   faraday-net_http (3.4.2) sha256=f147758260d3526939bf57ecf911682f94926a3666502e24c69992765875906c
-  faye-websocket (0.12.0) sha256=ad9f7dfcd0306d0a13baeee450729657661129af15bb5f38716c242484ab42e1
   fiber-annotation (0.2.0) sha256=7abfadf1d119f508867d4103bf231c0354d019cc39a5738945dec2edadaf6c03
   fiber-local (1.1.0) sha256=c885f94f210fb9b05737de65d511136ea602e00c5105953748aa0f8793489f06
   fiber-storage (1.0.1) sha256=f48e5b6d8b0be96dac486332b55cee82240057065dc761c1ea692b2e719240e1
@@ -275,7 +264,7 @@ CHECKSUMS
   rubocop (1.84.2) sha256=5692cea54168f3dc8cb79a6fe95c5424b7ea893c707ad7a4307b0585e88dbf5f
   rubocop-ast (1.49.1) sha256=4412f3ee70f6fe4546cc489548e0f6fcf76cafcfa80fa03af67098ffed755035
   rubocop-performance (1.26.1) sha256=cd19b936ff196df85829d264b522fd4f98b6c89ad271fa52744a8c11b8f71834
-  ruby-asterisk (1.0.0)
+  ruby-asterisk (1.0.0) sha256=c60ef9ed4f2e17f4bd2a8ec5dc8213243be28cab05150b352373ee000f76152e
   ruby-progressbar (1.13.0) sha256=80fc9c47a9b640d6834e0dc7b3c94c9df37f08cb072b7761e4a71e22cff29b33
   standard (1.54.0) sha256=7a4b08f83d9893083c8f03bc486f0feeb6a84d48233b40829c03ef4767ea0100
   standard-custom (1.0.2) sha256=424adc84179a074f1a2a309bb9cf7cd6bfdb2b6541f20c6bf9436c0ba22a652b

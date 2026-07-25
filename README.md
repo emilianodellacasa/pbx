@@ -62,20 +62,24 @@ CLI flags override YAML values; YAML values override built-in defaults.
 | `p` | Peers tab |
 | `c` | Calls tab |
 | `q` | Queues tab |
-| `↑` / `↓` | Scroll (peers table) |
+| `↑` / `↓` | Scroll the active table |
 | `i` | Info modal |
 | `e` / `Esc` / `Ctrl-C` | Quit |
 
 ## AMI user setup
 
-The monitor only needs read access. A minimal `/etc/asterisk/manager.conf` entry:
+The monitor only needs read access — it issues just `Login`, `SIPpeers`,
+`PJSIPShowEndpoints`, `QueueStatus`, `Events` and `Logoff`, none of which
+require a write class. A minimal `/etc/asterisk/manager.conf` entry:
 
 ```ini
 [monitor]
 secret = s3cret
-read = system,call,agent,user,config,dtmf,reporting,cdr,dialplan
-write = command
+read = system,call,agent,reporting,dialplan
 ```
+
+`system` covers peer and endpoint discovery, `agent` and `reporting` the queue
+events, `call` the channel events and `dialplan` the `Newexten` app updates.
 
 ## Development
 

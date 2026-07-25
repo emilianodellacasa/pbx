@@ -1,18 +1,20 @@
 # frozen_string_literal: true
 
 # Duck-typed stand-in for RubyAsterisk::AMI::Client.
-# Resolves promises synchronously and allows injecting events.
+#
+# Resolves promises synchronously and builds AMI events for specs to feed to the
+# bridge. List actions mirror the real gem: their items are aggregated into the
+# action's Response and never reach the event stream.
 class FakeAmiClient
   FakePromise = Struct.new(:response) do
     def value(_timeout = 5) = response
   end
 
-  FakeResponse = Struct.new(:success, :data, :message) do
+  FakeResponse = Struct.new(:success, :data, :message, :raw_response) do
     def success = self[:success]
   end
 
-  attr_reader :connected, :logged_in, :injected_events
-  attr_writer :event_queue
+  attr_reader :connected, :logged_in
 
   def initialize(peers: [], queues: [], pjsip_endpoints: [])
     @peers = peers
@@ -20,8 +22,6 @@ class FakeAmiClient
     @pjsip_endpoints = pjsip_endpoints
     @connected = false
     @logged_in = false
-    @injected_events = []
-    @event_queue = nil
   end
 
   def connect
@@ -44,57 +44,65 @@ class FakeAmiClient
   end
 
   def sip_peers
-    if @event_queue
-      @peers.each { |peer_data| push_event("PeerEntry", peer_data) }
-      push_event("PeerlistComplete", "ListItems" => @peers.size.to_s)
-    end
-    FakePromise.new(FakeResponse.new(true, {peers: []}, nil))
+    list_promise(
+      "Peer status list will follow",
+      @peers.map { |peer_data| frame("PeerEntry", peer_data) },
+      "PeerlistComplete", "ListItems" => @peers.size.to_s
+    )
   end
 
   def queue_status
-    if @event_queue
-      @queues.each do |queue_data|
-        queue_name = queue_data.fetch("Queue")
-        members = queue_data.delete("members") || []
-        push_event("QueueParams", queue_data)
-        members.each { |m| push_event("QueueMember", m.merge("Queue" => queue_name)) }
-      end
-      push_event("QueueStatusComplete", "EventList" => "Complete")
+    item_frames = @queues.flat_map do |queue_data|
+      queue_name = queue_data.fetch("Queue")
+      members = queue_data["members"] || []
+      [
+        frame("QueueParams", queue_data.except("members")),
+        *members.map { |m| frame("QueueMember", m.merge("Queue" => queue_name)) }
+      ]
     end
-    FakePromise.new(FakeResponse.new(true, {}, nil))
+    list_promise("Queue status will follow", item_frames, "QueueStatusComplete")
   end
 
   def pjsip_show_endpoints
-    if @event_queue
-      @pjsip_endpoints.each { |ep| push_event("EndpointList", ep) }
-      push_event("EndpointListComplete", "EventList" => "Complete")
-    end
-    FakePromise.new(FakeResponse.new(true, {}, nil))
+    list_promise(
+      "A listing of Endpoints follows",
+      @pjsip_endpoints.map { |ep| frame("EndpointList", ep) },
+      "EndpointListComplete"
+    )
   end
 
   def event_mask(_mask)
-    FakePromise.new(FakeResponse.new(true, {}, nil))
+    FakePromise.new(FakeResponse.new(true, {}, nil, ["Response: Success\r\nEvents: On\r\n\r\n"]))
   end
 
   def execute(_command, _options = {})
     FakePromise.new(FakeResponse.new(false, {}, "Unknown command"))
   end
 
-  # Inject an AMI event into the client's event pipeline (simulates push events).
+  # Builds an unsolicited AMI event for a spec to push onto the bridge queue,
+  # standing in for what EventClient#handle_event does against a live PBX.
   def inject_event(name, headers = {})
     all_headers = headers.merge("Event" => name)
     raw = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
-    event = RubyAsterisk::AMI::Event.new(all_headers.transform_values(&:to_s), raw.freeze)
-    @injected_events << event
-    event
+    RubyAsterisk::AMI::Event.new(all_headers.transform_values(&:to_s), raw.freeze)
   end
 
   private
 
-  def push_event(name, headers = {})
-    all_headers = headers.transform_keys(&:to_s).transform_values(&:to_s).merge("Event" => name)
-    raw = all_headers.map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
-    event = RubyAsterisk::AMI::Event.new(all_headers, raw.freeze)
-    @event_queue.push({type: :event, event: event})
+  # Mirrors how ruby-asterisk aggregates a list action's reply: the ack frame
+  # opening the EventList, one Event frame per item, then the terminating
+  # Complete event — all joined into the Response the promise resolves with.
+  # List items deliberately never reach the event queue, exactly as in the gem.
+  def list_promise(message, item_frames, complete_event, complete_headers = {})
+    ack = "Response: Success\r\nEventList: start\r\nMessage: #{message}\r\n\r\n"
+    complete = frame(complete_event, complete_headers.merge("EventList" => "Complete"))
+    raw = [ack, *item_frames, complete].join
+    FakePromise.new(FakeResponse.new(true, {}, message, [raw]))
+  end
+
+  def frame(event_name, headers)
+    headers.transform_keys(&:to_s)
+      .merge("Event" => event_name)
+      .map { |k, v| "#{k}: #{v}" }.join("\r\n") + "\r\n\r\n"
   end
 end
