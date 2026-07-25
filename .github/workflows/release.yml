@@ -1,0 +1,60 @@
+name: Release
+
+# Publishing is driven by tags: push v0.1.0 and this builds, verifies and pushes
+# pbx 0.1.0 to RubyGems. Nothing is published from ordinary branch pushes.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: .ruby-version
+          bundler-cache: true
+
+      # A tag that disagrees with the gemspec would publish a version nobody
+      # asked for, so refuse before anything is built.
+      - name: Verify tag matches Pbx::VERSION
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          gem_version="$(ruby -r./lib/pbx/version -e 'print Pbx::VERSION')"
+          echo "tag: $tag_version | gemspec: $gem_version"
+          if [ "$tag_version" != "$gem_version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Pbx::VERSION $gem_version"
+            exit 1
+          fi
+
+      - name: Test
+        run: bundle exec rspec
+
+      - name: Lint
+        run: bundle exec standardrb
+
+      - name: Build gem
+        run: gem build pbx.gemspec
+
+      # Refuse to republish: RubyGems rejects a duplicate version anyway, but
+      # failing here keeps the reason obvious in the log.
+      - name: Check version is unpublished
+        run: |
+          version="$(ruby -r./lib/pbx/version -e 'print Pbx::VERSION')"
+          status="$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://rubygems.org/api/v2/rubygems/pbx/versions/${version}.json")"
+          if [ "$status" = "200" ]; then
+            echo "::error::pbx ${version} is already on RubyGems"
+            exit 1
+          fi
+
+      - name: Push to RubyGems
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: gem push "pbx-$(ruby -r./lib/pbx/version -e 'print Pbx::VERSION').gem"

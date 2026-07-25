@@ -88,3 +88,31 @@ bundle exec rspec        # run the test suite
 bundle exec standardrb   # check code style
 bundle exec standardrb --fix  # auto-fix style violations
 ```
+
+## Releasing
+
+Releases are published to RubyGems by `.github/workflows/release.yml`, triggered
+by pushing a `v*` tag. The workflow refuses to publish unless the tag matches
+`Pbx::VERSION`, the suite and linter pass, and the version is not already on
+RubyGems.
+
+One-time setup: create an API key on RubyGems with the **push** scope, then add
+it to the repository as the `RUBYGEMS_API_KEY` secret
+(*Settings → Secrets and variables → Actions*).
+
+To cut a release:
+
+```bash
+# 1. bump the version
+$EDITOR lib/pbx/version.rb
+bundle install                     # refresh the version in Gemfile.lock
+git commit -am "Release v0.2.0"
+
+# 2. tag and push — pushing the tag is what publishes
+git tag v0.2.0
+git push origin main --tags
+```
+
+`bundle exec rake release` (from `bundler/gem_tasks`) also works for publishing
+by hand; `allowed_push_host` in the gemspec keeps either path pointed at
+rubygems.org.

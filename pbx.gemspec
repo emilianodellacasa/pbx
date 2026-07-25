@@ -14,6 +14,11 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2"
 
+  # Guards `rake release` and `gem push` against publishing to any other host.
+  # source_code_uri is omitted on purpose: it would duplicate spec.homepage,
+  # and RubyGems only ever displays the first of two identical URIs.
+  spec.metadata = {"allowed_push_host" => "https://rubygems.org"}
+
   spec.bindir = "exe"
   spec.executables = ["pbx"]
   spec.files = Dir["{lib,exe,examples}/**/*", "LICENSE", "README.md"]
