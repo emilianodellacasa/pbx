@@ -310,11 +310,9 @@ module Pbx
         ""
       else
         if @view_mode == :calls
-          height = [[@active_calls.size, @height - 8].min, 1].max
-          Views::ActiveCalls.render(@active_calls, @width, height, table: @calls_table)
+          Views::ActiveCalls.render(@active_calls, @width, list_height(@active_calls.size), table: @calls_table)
         elsif @view_mode == :queues
-          height = [[@queues.size, @height - 8].min, 1].max
-          Views::QueueTable.render(@queues, @width, height, table: @queues_table)
+          Views::QueueTable.render(@queues, @width, list_height(@queues.size), table: @queues_table)
         else
           @extensions.empty? ? Views::ExtensionTable.render_empty : (@table&.view || Views::ExtensionTable.render_empty)
         end
@@ -327,13 +325,18 @@ module Pbx
     end
 
     def rebuild_calls_table
-      height = [[@active_calls.size, @height - 8].min, 1].max
-      @calls_table = Views::ActiveCalls.build(@active_calls, height)
+      @calls_table = Views::ActiveCalls.build(@active_calls, list_height(@active_calls.size))
     end
 
     def rebuild_queues_table
-      height = [[@queues.size, @height - 8].min, 1].max
-      @queues_table = Views::QueueTable.build(@queues, height)
+      @queues_table = Views::QueueTable.build(@queues, list_height(@queues.size))
+    end
+
+    # Rows available to a list body, never fewer than one. The upper bound is
+    # floored before clamping because a bare clamp(1, @height - 8) raises
+    # ArgumentError once the terminal is shorter than nine rows.
+    def list_height(count)
+      count.clamp(1, [@height - 8, 1].max)
     end
 
     def connect_cmd

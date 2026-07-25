@@ -444,6 +444,31 @@ RSpec.describe Pbx::AmiBridge do
     end
   end
 
+  # The rest of the suite drives the bridge through FakeAmiClient, so it cannot
+  # catch ruby-asterisk changing the hook EventClient hangs its event delivery
+  # on. These examples pin that contract against the real gem: without them a
+  # renamed hook silently starves the TUI of every event while staying green.
+  describe Pbx::AmiBridge::EventClient do
+    let(:queue) { Queue.new }
+    subject(:client) { described_class.new(host: "127.0.0.1", port: 5038, queue: queue) }
+
+    it "overrides a hook the gem's Client actually defines" do
+      expect(RubyAsterisk::AMI::Client.private_method_defined?(:handle_event)).to be true
+    end
+
+    it "pushes events delivered through the hook onto the bridge queue" do
+      event = RubyAsterisk::AMI::Event.new({"Event" => "FullyBooted"}.freeze, "Event: FullyBooted\r\n\r\n")
+      client.send(:handle_event, event)
+
+      expect(queue.pop).to eq({type: :event, event: event})
+    end
+
+    it "exposes PJSIPShowEndpoints through the gem's execute contract" do
+      expect(client.method(:pjsip_show_endpoints).owner).to eq(described_class)
+      expect(RubyAsterisk::AMI::Client.public_method_defined?(:execute)).to be true
+    end
+  end
+
   describe "#next_event (queue events)" do
     before { bridge.connect_and_login }
 
